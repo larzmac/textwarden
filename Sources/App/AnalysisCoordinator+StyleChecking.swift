@@ -163,9 +163,16 @@ extension AnalysisCoordinator {
         Logger.debug("AnalysisCoordinator: Evicted \(toRemove) LRU cache entries", category: Logger.performance)
     }
 
+    /// Compute a content-based cache key for grammar results.
+    /// Keyed by text + dialect + engine so the same text isn't re-checked, but changing
+    /// the dialect or the engine (LanguageTool vs Harper) triggers a fresh analysis.
+    func computeGrammarCacheKey(text: String) -> String {
+        "\(text.hashValue)_\(userPreferences.selectedDialect)_\(GrammarEngineMode.current.rawValue)"
+    }
+
     /// Update cache with access time tracking
     func updateErrorCache(for segment: TextSegment, with errors: [GrammarErrorModel]) {
-        let cacheKey = segment.id.uuidString
+        let cacheKey = computeGrammarCacheKey(text: segment.content)
         errorCache[cacheKey] = errors
 
         cacheMetadata[cacheKey] = CacheMetadata(
@@ -176,6 +183,18 @@ extension AnalysisCoordinator {
         // Perform cache maintenance
         purgeExpiredCache()
         evictLRUCacheIfNeeded()
+    }
+
+    /// Look up cached grammar errors for identical text (touches LRU access time on hit)
+    func cachedGrammarErrors(for text: String) -> [GrammarErrorModel]? {
+        let cacheKey = computeGrammarCacheKey(text: text)
+        guard let errors = errorCache[cacheKey] else { return nil }
+
+        cacheMetadata[cacheKey] = CacheMetadata(
+            lastAccessed: Date(),
+            documentSize: text.count
+        )
+        return errors
     }
 
     // MARK: - Style Cache Methods

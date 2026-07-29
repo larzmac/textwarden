@@ -246,6 +246,11 @@ class AnalysisCoordinator: ObservableObject {
     /// Used to detect and skip stale analysis (when text changed during LLM inference)
     var styleAnalysisGeneration: UInt64 = 0
 
+    /// Generation ID for grammar analysis - incremented each time a new analysis is dispatched
+    /// Used to drop stale results: with a network engine (LanguageTool, 50-300ms) the text can
+    /// change while a check is in flight, and applying the old offsets would misplace underlines
+    var grammarAnalysisGeneration: UInt64 = 0
+
     /// Whether style checking should run for the current text
     private var shouldRunStyleChecking: Bool {
         userPreferences.enableStyleChecking

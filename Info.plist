@@ -35,11 +35,9 @@
 	<key>NSSupportsSuddenTermination</key>
 	<true/>
 	<key>SUEnableAutomaticChecks</key>
-	<true/>
+	<false/>
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
-	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/PhilipSchmid/textwarden/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>Vif5a8JO+wPQUakHgRhQh5ogO7CEZ/cFCAZGHe8ykg0=</string>
 </dict>

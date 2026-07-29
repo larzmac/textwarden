@@ -47,23 +47,32 @@ class TextMonitor: ObservableObject {
 
     /// Get the appropriate debounce interval for the current app
     private var debounceInterval: TimeInterval {
-        guard let bundleID = currentContext?.bundleIdentifier else {
+        let perAppInterval: TimeInterval = {
+            guard let bundleID = currentContext?.bundleIdentifier else {
+                return defaultDebounceInterval
+            }
+
+            let appConfig = AppRegistry.shared.configuration(for: bundleID)
+
+            // Slow app debounce (deferred extraction apps like Outlook)
+            if appConfig.features.defersTextExtraction {
+                return TimingConstants.slowAppDebounce
+            }
+
+            // Chromium debounce (typing pause apps like Slack)
+            if appConfig.features.requiresTypingPause {
+                return chromiumDebounceInterval
+            }
+
             return defaultDebounceInterval
+        }()
+
+        // A network engine (LanguageTool) needs a wider debounce floor than Harper;
+        // per-app intervals that are already longer (Chromium, Outlook) still win
+        if GrammarEngineMode.current != .harper {
+            return max(perAppInterval, TimingConstants.languageToolDebounce)
         }
-
-        let appConfig = AppRegistry.shared.configuration(for: bundleID)
-
-        // Slow app debounce (deferred extraction apps like Outlook)
-        if appConfig.features.defersTextExtraction {
-            return TimingConstants.slowAppDebounce
-        }
-
-        // Chromium debounce (typing pause apps like Slack)
-        if appConfig.features.requiresTypingPause {
-            return chromiumDebounceInterval
-        }
-
-        return defaultDebounceInterval
+        return perAppInterval
     }
 
     // MARK: - Callbacks

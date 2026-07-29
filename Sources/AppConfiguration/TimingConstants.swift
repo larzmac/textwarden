@@ -26,6 +26,11 @@ enum TimingConstants {
     /// Debounce interval for style analysis (2s to avoid excessive LLM calls)
     static let styleDebounce: TimeInterval = 2.0
 
+    /// Minimum debounce when a network grammar engine (LanguageTool) is active.
+    /// HTTP round-trips run 50-300ms; the 50ms default would enqueue redundant checks
+    /// on the serial analysis queue during normal typing.
+    static let languageToolDebounce: TimeInterval = 0.3
+
     // MARK: - Cache Expiration
 
     /// Grammar analysis cache expiration (5 minutes)

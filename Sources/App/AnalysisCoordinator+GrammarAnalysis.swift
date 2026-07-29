@@ -69,6 +69,29 @@ extension AnalysisCoordinator {
 
         guard hasChanged else { return }
 
+        // Content-keyed cache: identical text (same dialect + engine) skips the engine call
+        // entirely — matters for the HTTP LanguageTool engine when refocusing fields or
+        // when AX re-delivers unchanged text
+        if let cachedErrors = cachedGrammarErrors(for: text) {
+            Logger.debug("AnalysisCoordinator: Grammar cache hit (\(cachedErrors.count) errors) - skipping engine call", category: Logger.analysis)
+            lastAnalyzedText = text
+            let cachedResult = GrammarAnalysisResult(
+                errors: cachedErrors,
+                wordCount: text.split(whereSeparator: \.isWhitespace).count,
+                analysisTimeMs: 0
+            )
+            handleGrammarResults(cachedResult, segment: segment, text: text, element: textMonitor.monitoredElement)
+
+            if shouldRunAutoStyleChecking() {
+                runDebouncedStyleAnalysis(text: text)
+            } else {
+                styleDebounceTimer?.invalidate()
+                styleDebounceTimer = nil
+            }
+            previousText = text
+            return
+        }
+
         // For now, analyze full text
         // TODO: Implement true incremental diffing for large documents
         let shouldAnalyzeFull = text.count < 1000 || textHasChangedSignificantly(text)
@@ -135,6 +158,9 @@ extension AnalysisCoordinator {
         // Capture grammar engine reference before async dispatch
         let grammarEngineRef = grammarEngine
 
+        grammarAnalysisGeneration += 1
+        let generation = grammarAnalysisGeneration
+
         // Simplified: For large docs, still analyze full text but async
         // Full incremental diff would require text diffing algorithm
         analysisQueue.async { [weak self] in
@@ -159,6 +185,14 @@ extension AnalysisCoordinator {
 
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                guard generation == grammarAnalysisGeneration else {
+                    Logger.debug("AnalysisCoordinator: Dropping stale grammar result (gen \(generation) < \(grammarAnalysisGeneration))", category: Logger.analysis)
+                    return
+                }
+                guard segmentContent == currentSegment?.content else {
+                    Logger.debug("AnalysisCoordinator: Dropping grammar result - text changed during analysis", category: Logger.analysis)
+                    return
+                }
                 updateErrorCache(for: segment, with: result.errors)
                 applyFilters(to: result.errors, sourceText: segmentContent, element: capturedElement)
 
@@ -194,10 +228,13 @@ extension AnalysisCoordinator {
         // Capture grammar engine reference before async dispatch
         let grammarEngineRef = grammarEngine
 
+        grammarAnalysisGeneration += 1
+        let generation = grammarAnalysisGeneration
+
         analysisQueue.async { [weak self] in
             guard let self else { return }
 
-            Logger.debug("AnalysisCoordinator: Calling Harper grammar engine (langDetect=\(config.enableLanguageDetection), excludedLangs=\(config.excludedLanguages))...", category: Logger.analysis)
+            Logger.debug("AnalysisCoordinator: Calling grammar engine (langDetect=\(config.enableLanguageDetection), excludedLangs=\(config.excludedLanguages))...", category: Logger.analysis)
 
             let grammarResult = grammarEngineRef.analyzeText(
                 text,
@@ -216,10 +253,18 @@ extension AnalysisCoordinator {
                 checkDashes: config.checkDashes
             )
 
-            Logger.debug("AnalysisCoordinator: Harper returned \(grammarResult.errors.count) error(s)", category: Logger.analysis)
+            Logger.debug("AnalysisCoordinator: Engine returned \(grammarResult.errors.count) error(s)", category: Logger.analysis)
 
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                guard generation == grammarAnalysisGeneration else {
+                    Logger.debug("AnalysisCoordinator: Dropping stale grammar result (gen \(generation) < \(grammarAnalysisGeneration))", category: Logger.analysis)
+                    return
+                }
+                guard text == currentSegment?.content else {
+                    Logger.debug("AnalysisCoordinator: Dropping grammar result - text changed during analysis", category: Logger.analysis)
+                    return
+                }
                 handleGrammarResults(
                     grammarResult,
                     segment: segment,

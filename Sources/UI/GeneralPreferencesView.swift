@@ -16,6 +16,8 @@ struct GeneralPreferencesView: View {
     @ObservedObject var preferences: UserPreferences
     @ObservedObject private var permissionManager = PermissionManager.shared
     @State private var showingPermissionDialog = false
+    @AppStorage(GrammarEngineMode.defaultsKey) private var engineMode = GrammarEngineMode.auto.rawValue
+    @AppStorage(LanguageToolEngine.serverURLDefaultsKey) private var languageToolServerURL = ""
 
     var body: some View {
         Form {
@@ -61,6 +63,31 @@ struct GeneralPreferencesView: View {
                     Text("General")
                         .font(.headline)
                         .padding(.top, 8)
+                }
+            }
+
+            // Grammar Engine Section
+            Section {
+                Picker("Engine:", selection: $engineMode) {
+                    ForEach(GrammarEngineMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.displayName).tag(mode.rawValue)
+                    }
+                }
+                .help("LanguageTool requires a local server (brew services start languagetool)")
+
+                if engineMode != GrammarEngineMode.harper.rawValue {
+                    TextField("Server URL:", text: $languageToolServerURL, prompt: Text(LanguageToolEngine.defaultServerURL))
+                        .textFieldStyle(.roundedBorder)
+                    Text("Run the server with: brew services start languagetool")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } header: {
+                HStack(spacing: 8) {
+                    Image(systemName: "gearshape.2")
+                        .foregroundColor(.accentColor)
+                    Text("Grammar Engine")
+                        .font(.headline)
                 }
             }
 

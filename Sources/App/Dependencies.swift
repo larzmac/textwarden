@@ -226,7 +226,7 @@ struct DependencyContainer {
         textMonitor: TextMonitor(),
         applicationTracker: .shared,
         permissionManager: .shared,
-        grammarEngine: GrammarEngine.shared,
+        grammarEngine: EngineRouter(),
         userPreferences: UserPreferences.shared,
         appRegistry: AppRegistry.shared,
         customVocabulary: CustomVocabulary.shared,
