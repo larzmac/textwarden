@@ -1,7 +1,30 @@
 
-# TextWarden
+# TextWarden — Larz's LanguageTool Fork
 
-[![CI](https://github.com/philipschmid/textwarden/actions/workflows/ci.yml/badge.svg)](https://github.com/philipschmid/textwarden/actions/workflows/ci.yml)
+> **This is a personal fork of [PhilipSchmid/textwarden](https://github.com/PhilipSchmid/textwarden)**, built as a
+> free replacement for a Grammarly subscription. Everything still runs locally — no accounts, no cloud, no cost.
+>
+> **What this fork adds** (branch `languagetool-engine`):
+>
+> - **LanguageTool engine** — grammar checking is powered by a local [LanguageTool](https://languagetool.org/dev)
+>   server (`brew services start languagetool`, port 8081) for deeper rule coverage than Harper alone,
+>   including homophone confusions like *their/they're*. `Sources/GrammarBridge/LanguageToolEngine.swift`
+>   converts LT's UTF-16 offsets to the Unicode-scalar indices the app uses (emoji-safe, unit-tested).
+> - **Automatic Harper fallback** — an `EngineRouter` prefers LanguageTool and silently falls back to the
+>   built-in Harper engine when the server is down (30 s failure cooldown) or the document exceeds 20 k
+>   characters. Engine picker in Settings → General (Auto / LanguageTool / Harper).
+> - **Latency hardening for a network engine** — stale-result protection (generation counter +
+>   text-identity guard so slow responses never misplace underlines), a content-keyed grammar result
+>   cache (identical text skips the engine), and a 0.3 s debounce floor while LanguageTool is active.
+> - **Companion browser extension** (`BrowserExtension/`) — a Manifest V3 WebExtension for Safari and
+>   Chrome that checks web text fields in-page against the same local LanguageTool server, covering
+>   web editors the macOS Accessibility API can't reach well.
+> - Fork housekeeping: upstream auto-update disabled, personal signing, OpenDirectory linked.
+>
+> Everything below this note is the original upstream README.
+
+---
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-26%2B-brightgreen.svg)](https://github.com/philipschmid/textwarden/releases)
 
