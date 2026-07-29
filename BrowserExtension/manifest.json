@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "TextWarden Web",
+  "version": "1.0",
+  "description": "Checks grammar in web text fields using your local LanguageTool server. No cloud, no accounts.",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "host_permissions": ["http://localhost:8081/*"]
+}

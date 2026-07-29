@@ -35,6 +35,14 @@
       "kind": "action"
     },
     {
+      "id": "rebuild-safari-ext",
+      "label": "Rebuild Safari extension",
+      "explain": "Use after Claude changes the browser extension, then re-enable it in Safari Settings if needed",
+      "command": ["bash", "-lc", "cd 'SafariExtension/TextWarden Web' && xcodebuild -project 'TextWarden Web.xcodeproj' -scheme 'TextWarden Web' -configuration Debug DEVELOPMENT_TEAM=4S8278TRTP -allowProvisioningUpdates build && open \"$(ls -d ~/Library/Developer/Xcode/DerivedData/TextWarden_Web-*/Build/Products/Debug/'TextWarden Web.app' | head -1)\""],
+      "kind": "action",
+      "timeoutSec": 900
+    },
+    {
       "id": "tests",
       "label": "Run TextWarden tests",
       "explain": "Checks that the code still works after changes",

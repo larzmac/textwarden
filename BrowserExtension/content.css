@@ -1,0 +1,87 @@
+/* TextWarden Web — overlay styles. High z-index, no pointer capture on marks. */
+
+.textwarden-badge {
+  display: none;
+  position: absolute;
+  z-index: 2147483646;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font: 600 11px/18px -apple-system, system-ui, sans-serif;
+  text-align: center;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.textwarden-badge[data-state="clean"] { background: #34a853; }
+.textwarden-badge[data-state="issues"] { background: #ea4335; }
+.textwarden-badge[data-state="offline"] { background: #9aa0a6; }
+
+.textwarden-underlines { position: absolute; top: 0; left: 0; z-index: 2147483645; pointer-events: none; }
+
+.textwarden-mark {
+  position: absolute;
+  height: 2px;
+  background: #ea4335;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.textwarden-panel {
+  display: none;
+  position: absolute;
+  z-index: 2147483647;
+  width: 320px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #fff;
+  color: #202124;
+  border: 1px solid #dadce0;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  font: 13px/1.4 -apple-system, system-ui, sans-serif;
+  padding: 6px 0;
+}
+
+.textwarden-panel-header {
+  font-weight: 600;
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.textwarden-item { padding: 8px 14px; border-bottom: 1px solid #f2f2f2; }
+.textwarden-item:last-child { border-bottom: none; }
+
+.textwarden-flagged {
+  text-decoration: underline;
+  text-decoration-color: #ea4335;
+  text-decoration-thickness: 2px;
+  font-weight: 600;
+}
+
+.textwarden-message { color: #5f6368; margin: 2px 0 6px; }
+
+.textwarden-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.textwarden-fix {
+  border: 1px solid #1a73e8;
+  background: #fff;
+  color: #1a73e8;
+  border-radius: 6px;
+  padding: 2px 10px;
+  font: 600 12px -apple-system, system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.textwarden-fix:hover { background: #1a73e8; color: #fff; }
+
+@media (prefers-color-scheme: dark) {
+  .textwarden-panel { background: #202124; color: #e8eaed; border-color: #3c4043; }
+  .textwarden-panel-header { border-color: #3c4043; }
+  .textwarden-item { border-color: #303134; }
+  .textwarden-message { color: #9aa0a6; }
+  .textwarden-fix { background: #202124; }
+  .textwarden-fix:hover { background: #1a73e8; color: #fff; }
+}
