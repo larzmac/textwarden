@@ -280,7 +280,7 @@ extension AnalysisCoordinator {
     @available(macOS 26.0, *)
     private func runManualStyleCheckWithFM(element: AXUIElement, context: ApplicationContext) {
         // Create engine on demand
-        let fmEngine = FoundationModelsEngine()
+        let fmEngine: any StyleEngine = StyleEngineFactory.make()
         fmEngine.checkAvailability()
 
         guard fmEngine.status.isAvailable else {
@@ -453,7 +453,8 @@ extension AnalysisCoordinator {
                             let alternatives = try await fmEngine.simplifySentence(
                                 sentence.sentence,
                                 targetAudience: targetAudience,
-                                writingStyle: style
+                                writingStyle: style,
+                                previousSuggestion: nil
                             )
 
                             // Create a StyleSuggestionModel for the first alternative only
@@ -558,7 +559,7 @@ extension AnalysisCoordinator {
         Logger.debug("AnalysisCoordinator: Regenerating suggestion for text (\(suggestion.originalText.count) chars, readability: \(suggestion.isReadabilitySuggestion))", category: Logger.analysis)
 
         // Create engine on demand
-        let fmEngine = FoundationModelsEngine()
+        let fmEngine: any StyleEngine = StyleEngineFactory.make()
         fmEngine.checkAvailability()
 
         guard fmEngine.status.isAvailable else {

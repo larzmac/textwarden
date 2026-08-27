@@ -19,7 +19,14 @@
 > - **Companion browser extension** (`BrowserExtension/`) — a Manifest V3 WebExtension for Safari and
 >   Chrome that checks web text fields in-page against the same local LanguageTool server, covering
 >   web editors the macOS Accessibility API can't reach well.
+> - **Statistical confused-word detection** — LanguageTool's 14 GB English n-gram data catches
+>   correctly-spelled wrong words (*brakes/breaks*, *morning/mourning*) that pattern rules can't.
+> - **Switchable AI rewrite engine** — style suggestions, rewrites, and sentence simplification can
+>   run on **Apple Intelligence** (built-in) or a **local Ollama model** (Settings → Style → AI engine).
+>   Both are fully on-device; there is no cloud path anywhere in this fork.
 > - Fork housekeeping: upstream auto-update disabled, personal signing, OpenDirectory linked.
+>
+> **Full documentation of every change and the machine setup: [docs/FORK.md](docs/FORK.md).**
 >
 > Everything below this note is the original upstream README.
 

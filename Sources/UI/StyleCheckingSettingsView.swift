@@ -12,6 +12,9 @@ struct StyleCheckingSettingsView: View {
 
     /// Foundation Models engine status - wrapped for availability
     @State private var fmStatus: StyleEngineStatus = .unknown("")
+    @AppStorage(StyleEngineMode.defaultsKey) private var styleEngineMode = StyleEngineMode.appleIntelligence.rawValue
+    @AppStorage(OllamaConfig.modelDefaultsKey) private var ollamaModel = ""
+    @AppStorage(OllamaConfig.serverURLDefaultsKey) private var ollamaServerURL = ""
 
     var body: some View {
         Form {
@@ -90,6 +93,29 @@ struct StyleCheckingSettingsView: View {
             }
 
             // MARK: - AI Style Suggestions Section
+
+            // Engine selection: Apple Intelligence (built-in) or a local Ollama model.
+            // Both run entirely on this Mac - no cloud, no per-use cost.
+            Section {
+                Picker("AI engine:", selection: $styleEngineMode) {
+                    ForEach(StyleEngineMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.displayName).tag(mode.rawValue)
+                    }
+                }
+                .onChange(of: styleEngineMode) { _, _ in
+                    checkFMAvailability()
+                }
+
+                if styleEngineMode == StyleEngineMode.ollama.rawValue {
+                    TextField("Model:", text: $ollamaModel, prompt: Text(OllamaConfig.defaultModel))
+                        .textFieldStyle(.roundedBorder)
+                    TextField("Server URL:", text: $ollamaServerURL, prompt: Text(OllamaConfig.defaultServerURL))
+                        .textFieldStyle(.roundedBorder)
+                    Text("Requires the Ollama app to be running with the model pulled (ollama pull <model>)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
 
             // Availability status (small section with the header)
             Section {
@@ -289,7 +315,7 @@ struct StyleCheckingSettingsView: View {
     /// Check Foundation Models availability (requires macOS 26+)
     private func checkFMAvailability() {
         if #available(macOS 26.0, *) {
-            let engine = FoundationModelsEngine()
+            let engine: any StyleEngine = StyleEngineFactory.make()
             engine.checkAvailability()
             fmStatus = engine.status
         } else {

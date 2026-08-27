@@ -477,7 +477,7 @@ extension AnalysisCoordinator {
     /// Run auto style check using Foundation Models (Apple Intelligence)
     @available(macOS 26.0, *)
     private func runAutoStyleCheckWithFM(text: String, element _: AXUIElement, context _: ApplicationContext) {
-        let fmEngine = FoundationModelsEngine()
+        let fmEngine: any StyleEngine = StyleEngineFactory.make()
         fmEngine.checkAvailability()
 
         guard fmEngine.status.isAvailable else {
@@ -543,7 +543,7 @@ extension AnalysisCoordinator {
 
         Task {
             do {
-                let suggestions = try await fmEngine.analyzeStyle(text, style: style)
+                let suggestions = try await fmEngine.analyzeStyle(text, style: style, temperaturePreset: .balanced, customVocabulary: [])
 
                 await MainActor.run {
                     // Check if still valid (text may have changed during analysis)
@@ -584,7 +584,8 @@ extension AnalysisCoordinator {
                             let alternatives = try await fmEngine.simplifySentence(
                                 sentence.sentence,
                                 targetAudience: targetAudience,
-                                writingStyle: style
+                                writingStyle: style,
+                                previousSuggestion: nil
                             )
 
                             // Only store suggestion if we got a non-empty alternative

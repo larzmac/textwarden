@@ -458,7 +458,7 @@ class AnalysisCoordinator: ObservableObject {
 
             if #available(macOS 26.0, *) {
                 // Create engine on demand
-                let fmEngine = FoundationModelsEngine()
+                let fmEngine: any StyleEngine = StyleEngineFactory.make()
                 fmEngine.checkAvailability()
 
                 guard fmEngine.status.isAvailable else {
@@ -927,7 +927,7 @@ class AnalysisCoordinator: ObservableObject {
 
             // Check if Foundation Models is available (requires macOS 26+)
             if #available(macOS 26.0, *) {
-                let fmEngine = FoundationModelsEngine()
+                let fmEngine: any StyleEngine = StyleEngineFactory.make()
                 fmEngine.checkAvailability()
 
                 if fmEngine.status.isAvailable {
@@ -953,7 +953,8 @@ class AnalysisCoordinator: ObservableObject {
                             let alternatives = try await fmEngine.simplifySentence(
                                 sentenceResult.sentence,
                                 targetAudience: targetAudience,
-                                writingStyle: style
+                                writingStyle: style,
+                                previousSuggestion: nil
                             )
 
                             // Create the real suggestion with the first alternative (must be non-empty)
@@ -1108,7 +1109,7 @@ class AnalysisCoordinator: ObservableObject {
 
             // Generate on demand if AI available (requires macOS 26+)
             if #available(macOS 26.0, *) {
-                let fmEngine = FoundationModelsEngine()
+                let fmEngine: any StyleEngine = StyleEngineFactory.make()
                 fmEngine.checkAvailability()
 
                 if fmEngine.status.isAvailable {
@@ -1131,7 +1132,8 @@ class AnalysisCoordinator: ObservableObject {
                             let alternatives = try await fmEngine.simplifySentence(
                                 sentenceResult.sentence,
                                 targetAudience: targetAudience,
-                                writingStyle: style
+                                writingStyle: style,
+                                previousSuggestion: nil
                             )
 
                             if let firstAlternative = alternatives.first, !firstAlternative.isEmpty {

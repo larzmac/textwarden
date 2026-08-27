@@ -1,15 +1,23 @@
 {
   "id": "textwarden",
   "name": "TextWarden (Grammarly Replacement)",
+  "emoji": "✍️",
   "description": "Grammar checker that underlines mistakes as you type in Mail, TextEdit, and other apps",
   "cwd": "/Users/larz/Documents/Claude/Projects/TextWarden-Fork",
-  "status": { "port": 8081, "label": "Grammar server (LanguageTool)" },
+  "status": {
+    "port": 8081,
+    "label": "Grammar server (LanguageTool)"
+  },
   "buttons": [
     {
       "id": "rebuild-restart",
       "label": "Rebuild & restart TextWarden",
       "explain": "Use this after Claude changes TextWarden's code",
-      "command": ["bash", "-lc", "xcodebuild -project TextWarden.xcodeproj -scheme TextWarden -configuration Debug -allowProvisioningUpdates build && pkill -x TextWarden; sleep 1; open \"$(ls -d ~/Library/Developer/Xcode/DerivedData/TextWarden-*/Build/Products/Debug/TextWarden.app | head -1)\""],
+      "command": [
+        "bash",
+        "-lc",
+        "xcodebuild -project TextWarden.xcodeproj -scheme TextWarden -configuration Debug -allowProvisioningUpdates build && pkill -x TextWarden; sleep 1; open \"$(ls -d ~/Library/Developer/Xcode/DerivedData/TextWarden-*/Build/Products/Debug/TextWarden.app | head -1)\""
+      ],
       "kind": "action",
       "timeoutSec": 1200
     },
@@ -17,28 +25,51 @@
       "id": "restart",
       "label": "Restart TextWarden",
       "explain": "If underlines stop appearing, try this first",
-      "command": ["bash", "-lc", "pkill -x TextWarden; sleep 1; open \"$(ls -d ~/Library/Developer/Xcode/DerivedData/TextWarden-*/Build/Products/Debug/TextWarden.app | head -1)\""],
+      "command": [
+        "bash",
+        "-lc",
+        "pkill -x TextWarden; sleep 1; open \"$(ls -d ~/Library/Developer/Xcode/DerivedData/TextWarden-*/Build/Products/Debug/TextWarden.app | head -1)\""
+      ],
       "kind": "action"
     },
     {
       "id": "lt-start",
       "label": "Start grammar server",
       "explain": "TextWarden uses simpler built-in checking while this is off",
-      "command": ["bash", "-lc", "brew services start languagetool"],
+      "command": [
+        "bash",
+        "-lc",
+        "brew services start languagetool"
+      ],
       "kind": "action"
     },
     {
       "id": "lt-restart",
       "label": "Restart grammar server",
       "explain": "Try this if suggestions seem worse than usual (TextWarden may be on its backup checker)",
-      "command": ["bash", "-lc", "brew services restart languagetool"],
+      "command": [
+        "bash",
+        "-lc",
+        "brew services restart languagetool"
+      ],
+      "kind": "action"
+    },
+    {
+      "id": "ollama-start",
+      "label": "Start rewrite engine (Ollama)",
+      "explain": "Needed for AI rewrites when the engine is set to Ollama in TextWarden's Style settings",
+      "command": ["bash", "-lc", "open -a Ollama"],
       "kind": "action"
     },
     {
       "id": "rebuild-safari-ext",
       "label": "Rebuild Safari extension",
       "explain": "Use after Claude changes the browser extension, then re-enable it in Safari Settings if needed",
-      "command": ["bash", "-lc", "cd 'SafariExtension/TextWarden Web' && xcodebuild -project 'TextWarden Web.xcodeproj' -scheme 'TextWarden Web' -configuration Debug DEVELOPMENT_TEAM=4S8278TRTP -allowProvisioningUpdates build && open \"$(ls -d ~/Library/Developer/Xcode/DerivedData/TextWarden_Web-*/Build/Products/Debug/'TextWarden Web.app' | head -1)\""],
+      "command": [
+        "bash",
+        "-lc",
+        "cd 'SafariExtension/TextWarden Web' && xcodebuild -project 'TextWarden Web.xcodeproj' -scheme 'TextWarden Web' -configuration Debug DEVELOPMENT_TEAM=4S8278TRTP -allowProvisioningUpdates build && open \"$(ls -d ~/Library/Developer/Xcode/DerivedData/TextWarden_Web-*/Build/Products/Debug/'TextWarden Web.app' | head -1)\""
+      ],
       "kind": "action",
       "timeoutSec": 900
     },
@@ -46,7 +77,11 @@
       "id": "tests",
       "label": "Run TextWarden tests",
       "explain": "Checks that the code still works after changes",
-      "command": ["bash", "-lc", "xcodebuild test -project TextWarden.xcodeproj -scheme TextWarden -only-testing:TextWardenTests/LanguageToolEngineTests -destination 'platform=macOS'"],
+      "command": [
+        "bash",
+        "-lc",
+        "xcodebuild test -project TextWarden.xcodeproj -scheme TextWarden -only-testing:TextWardenTests/LanguageToolEngineTests -destination 'platform=macOS'"
+      ],
       "kind": "action",
       "timeoutSec": 1800
     }
