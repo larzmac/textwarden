@@ -135,6 +135,7 @@ fn load_words_lowercase_only(text: &str) -> Vec<(CharString, DictWordMetadata)> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analyzer::analyze_text;
 
     #[test]
     fn test_load_internet_abbreviations() {
@@ -444,6 +445,120 @@ mod tests {
         let it_info = WordlistCategory::ITTerminology.info();
         assert_eq!(it_info.name, "IT Terminology");
         assert!(it_info.word_count_estimate > 9000);
+    }
+
+    // MARK: - WO-01: GrammarEngine test strengthening
+
+    #[test]
+    fn test_wordlist_synthetic_coverage() {
+        // Test that wordlists contain expected synthetic content
+        
+        // Test internet abbreviations
+        let abbrevs = WordlistCategory::InternetAbbreviations.load_words();
+        assert!(abbrevs.len() > 3000, "Should have 3000+ abbreviations");
+        
+        // Check for some common abbreviations that should be present
+        let abbrev_strings: Vec<String> = abbrevs
+            .iter()
+            .map(|(chars, _)| chars.iter().collect())
+            .collect();
+            
+        assert!(abbrev_strings.contains(&"btw".to_string()), "Should contain 'btw'");
+        assert!(abbrev_strings.contains(&"fyi".to_string()), "Should contain 'fyi'");
+        assert!(abbrev_strings.contains(&"lol".to_string()), "Should contain 'lol'");
+        
+        // Test IT terminology
+        let it_terms = WordlistCategory::ITTerminology.load_words();
+        assert!(it_terms.len() > 10000, "Should have 10000+ IT terms");
+        
+        let term_strings: Vec<String> = it_terms
+            .iter()
+            .map(|(chars, _)| chars.iter().collect())
+            .collect();
+            
+        assert!(term_strings.contains(&"kubernetes".to_string()), "Should contain 'kubernetes'");
+        assert!(term_strings.contains(&"docker".to_string()), "Should contain 'docker'");
+        assert!(term_strings.contains(&"nginx".to_string()), "Should contain 'nginx'");
+        
+        // Test Gen Z slang
+        let slang = WordlistCategory::GenZSlang.load_words();
+        assert!(slang.len() > 100, "Should have 100+ slang terms");
+        
+        let slang_strings: Vec<String> = slang
+            .iter()
+            .map(|(chars, _)| chars.iter().collect())
+            .collect();
+            
+        assert!(slang_strings.contains(&"ghosting".to_string()), "Should contain 'ghosting'");
+        assert!(slang_strings.contains(&"sus".to_string()), "Should contain 'sus'");
+    }
+
+    #[test]
+    fn test_wordlist_lowercase_only_generation() {
+        // Test that all wordlists are generated with lowercase only (as required)
+        
+        let abbrevs = WordlistCategory::InternetAbbreviations.load_words();
+        let slang = WordlistCategory::GenZSlang.load_words();
+        let it_terms = WordlistCategory::ITTerminology.load_words();
+        
+        // Check that no uppercase variants are present in any wordlist
+        let all_words: Vec<String> = abbrevs
+            .iter()
+            .chain(slang.iter())
+            .chain(it_terms.iter())
+            .map(|(chars, _)| chars.iter().collect())
+            .collect();
+            
+        for word in &all_words {
+            assert_eq!(word.to_lowercase(), *word, "All words should be lowercase only");
+        }
+    }
+
+    #[test]
+    fn test_wordlist_integration_with_analyzer() {
+        // Test that wordlists integrate properly with the analyzer
+        
+        // Test with internet abbreviations
+        let result = analyze_text(
+            "BTW this is a test.",
+            "American",
+            true,  // enable_internet_abbrev
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            true,
+            true,  // enforce_oxford_comma
+            true,  // check_ellipsis
+            true,  // check_unclosed_quotes
+            true,  // check_dashes
+        );
+        
+        assert!(result.word_count > 0, "Should analyze text with internet abbreviations");
+        
+        // Test with IT terminology
+        let result2 = analyze_text(
+            "Kubernetes is great.",
+            "American",
+            false,
+            false,
+            true,  // enable_it_terminology
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            true,
+            true,  // enforce_oxford_comma
+            true,  // check_ellipsis
+            true,  // check_unclosed_quotes
+            true,  // check_dashes
+        );
+        
+        assert!(result2.word_count > 0, "Should analyze text with IT terminology");
     }
 
     #[test]

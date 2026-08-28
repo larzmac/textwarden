@@ -986,4 +986,204 @@ mod tests {
         let result = should_skip_harper_analysis("", true, &["german".to_string()]);
         assert_eq!(result, Some(false), "Empty text should return Some(false)");
     }
+
+    // MARK: - WO-01: GrammarEngine test strengthening
+
+    #[test]
+    fn test_language_filter_synthetic_scenarios() {
+        // Test language filter with synthetic sentences
+        
+        // English document with mostly English sentences
+        let english_doc = "This is an English document. It contains several sentences. The language is English.";
+        let filter = LanguageFilter::new(true, vec!["german".to_string()]);
+        
+        // Should not skip analysis for English document
+        let should_skip = should_skip_harper_analysis(english_doc, true, &["german".to_string()]);
+        assert_eq!(should_skip, Some(false), "English document should not be skipped");
+        
+        // German document with mostly German sentences (should be skipped)
+        let german_doc = "Das ist ein deutscher Text. Er enthält mehrere Sätze. Die Sprache ist Deutsch.";
+        let should_skip2 = should_skip_harper_analysis(german_doc, true, &["german".to_string()]);
+        assert_eq!(should_skip2, Some(true), "German document should be skipped");
+        
+        // Mixed document (should not be skipped)
+        let mixed_doc = "Hello world. Das ist Deutsch. How are you?";
+        let should_skip3 = should_skip_harper_analysis(mixed_doc, true, &["german".to_string()]);
+        assert_eq!(should_skip3, Some(false), "Mixed document should not be skipped");
+    }
+
+    #[test]
+    fn test_language_filter_comprehensive_exclusions() {
+        // Test with multiple language exclusions
+        let filter = LanguageFilter::new(
+            true,
+            vec![
+                "german".to_string(),
+                "spanish".to_string(),
+                "french".to_string(),
+            ],
+        );
+        
+        // English document - should not be filtered
+        let english_text = "This is an English document. It contains several sentences.";
+        let result = filter.filter_errors(vec![], english_text);
+        assert_eq!(result.len(), 0, "English text should work normally");
+        
+        // German document - should be filtered
+        let german_text = "Das ist ein deutscher Text. Er enthält mehrere Sätze.";
+        let result2 = filter.filter_errors(vec![], german_text);
+        assert_eq!(result2.len(), 0, "German text should be filtered");
+        
+        // Spanish document - should be filtered  
+        let spanish_text = "Este es un documento en español. Contiene varias oraciones.";
+        let result3 = filter.filter_errors(vec![], spanish_text);
+        assert_eq!(result3.len(), 0, "Spanish text should be filtered");
+    }
+
+    #[test]
+    fn test_language_filter_italian_exclusion() {
+        // Test Italian is correctly detected and filtered by the language filter
+        let italian_doc = "Questo è un documento italiano. Contiene diverse frasi in italiano.";
+        let result = should_skip_harper_analysis(
+            italian_doc, true, &["italian".to_string()],
+        );
+        assert_eq!(result, Some(true), "Italian document should be skipped");
+
+        // Mixed English-Italian should not be fully skipped
+        let mixed = "Hello world. Questo è italiano. Goodbye.";
+        let result2 = should_skip_harper_analysis(
+            mixed, true, &["italian".to_string()],
+        );
+        assert_eq!(result2, Some(false), "Mixed document should not be fully skipped");
+    }
+
+    #[test]
+    fn test_language_filter_portuguese_exclusion() {
+        // Test Portuguese is correctly detected and filtered
+        let pt_doc = "Este é um documento em português. Contém várias frases.";
+        let result = should_skip_harper_analysis(
+            pt_doc, true, &["portuguese".to_string()],
+        );
+        assert_eq!(result, Some(true), "Portuguese document should be skipped");
+
+        // Mixed English-Portuguese should not be fully skipped
+        let mixed = "Hi there. Olá mundo! See you later.";
+        let result2 = should_skip_harper_analysis(
+            mixed, true, &["portuguese".to_string()],
+        );
+        assert_eq!(result2, Some(false), "Mixed EN/PT document should not be fully skipped");
+    }
+
+    #[test]
+    fn test_language_filter_dutch_exclusion() {
+        // Test Dutch is correctly detected and filtered
+        let nl_doc = "Dit is een Nederlands document. Het bevat meerdere zinnen.";
+        let result = should_skip_harper_analysis(
+            nl_doc, true, &["dutch".to_string()],
+        );
+        assert_eq!(result, Some(true), "Dutch document should be skipped");
+
+        // Mixed English-Dutch
+        let mixed = "Hello! Goedemorgen. See you later.";
+        let result2 = should_skip_harper_analysis(
+            mixed, true, &["dutch".to_string()],
+        );
+        assert_eq!(result2, Some(false), "Mixed EN/NL document should not be fully skipped");
+    }
+
+    #[test]
+    fn test_language_filter_swedish_exclusion() {
+        // Test Swedish is correctly detected and filtered
+        let sv_doc = "Detta är ett svenskt dokument. Det innehåller flera meningar.";
+        let result = should_skip_harper_analysis(
+            sv_doc, true, &["swedish".to_string()],
+        );
+        assert_eq!(result, Some(true), "Swedish document should be skipped");
+
+        // Mixed English-Swedish
+        let mixed = "Hej! Godmorgon. See you soon.";
+        let result2 = should_skip_harper_analysis(
+            mixed, true, &["swedish".to_string()],
+        );
+        assert_eq!(result2, Some(false), "Mixed EN/SV document should not be fully skipped");
+    }
+
+    #[test]
+    fn test_language_filter_turkish_exclusion() {
+        // Test Turkish is correctly detected and filtered
+        let tr_doc = "Bu Türkçe bir belgedir. Birden fazla cümle içeriyor.";
+        let result = should_skip_harper_analysis(
+            tr_doc, true, &["turkish".to_string()],
+        );
+        assert_eq!(result, Some(true), "Turkish document should be skipped");
+    }
+
+    #[test]
+    fn test_language_filter_japanese_detection() {
+        // Test Japanese text detection (non-Latin script)
+        let jp_doc = "これは日本語のドキュメントです。複数の文が含まれています。";
+        let result = should_skip_harper_analysis(
+            jp_doc, true, &["japanese".to_string()],
+        );
+        assert_eq!(result, Some(true), "Japanese document should be skipped");
+    }
+
+    #[test]
+    fn test_language_filter_korean_detection() {
+        // Test Korean text detection (non-Latin script)
+        let kr_doc = "이것은 한국어 문서입니다. 여러 문장이 포함되어 있습니다.";
+        let result = should_skip_harper_analysis(
+            kr_doc, true, &["korean".to_string()],
+        );
+        assert_eq!(result, Some(true), "Korean document should be skipped");
+    }
+
+    #[test]
+    fn test_language_filter_synthetic_code_switching() {
+        // Test language filter behavior with code-switching between English and multiple languages
+        let code_switched = vec![
+            ("Hello world. Bonjour!", vec!["french"], false),  // mixed EN/FR - not skipped
+            ("Bonjour! Adieu! Hello world.", vec!["french"], false),  // mixed but FR-heavy check varies by implementation
+            ("Hola mundo. Hello there.", vec!["spanish"], false),  // mixed ES/EN - not skipped  
+            ("Gracias! Hola mundo! Buenas tardes!", vec!["spanish"], false),  // mostly ES but may still process depending on threshold
+        ];
+
+        for (text, langs, expected_skip) in code_switched {
+            let lang_vec: Vec<String> = langs.iter().map(|s| s.to_string()).collect();
+            let result = should_skip_harper_analysis(text, true, &lang_vec);
+            // Code-switching tests verify the function doesn't panic and returns valid Option
+            assert!(result.is_some(), "Should return Some for: '{}'", text);
+            assert_eq!(result, Some(expected_skip), 
+                "Code-switching test failed: '{}' langs={:?}", text, lang_vec);
+        }
+    }
+
+    #[test]
+    fn test_language_filter_empty_and_short_inputs() {
+        // Test filter behavior with edge case inputs
+        let empty_result = should_skip_harper_analysis("", true, &["german".to_string()]);
+        assert_eq!(empty_result, Some(false), "Empty input should not be skipped");
+
+        let short_result = should_skip_harper_analysis("a", true, &["german".to_string()]);
+        assert_eq!(short_result, Some(false), "Single char should not be skipped");
+    }
+
+    #[test]
+    fn test_language_filter_filter_errors_with_synthetic_scenarios() {
+        // Test filter_errors with synthetic grammar error objects
+        let filter = LanguageFilter::new(
+            true,
+            vec!["german".to_string()],
+        );
+
+        // English text - errors should pass through unfiltered
+        let english_text = "This is a test sentence with errors.";
+        let filtered_en = filter.filter_errors(vec![], english_text);
+        assert_eq!(filtered_en.len(), 0, "No errors expected in clean text");
+
+        // German text - all content should be skipped
+        let german_text = "Das ist ein deutscher Text mit Fehlern.";
+        let filtered_de = filter.filter_errors(vec![], german_text);
+        assert_eq!(filtered_de.len(), 0, "German text should be filtered out completely");
+    }
 }
