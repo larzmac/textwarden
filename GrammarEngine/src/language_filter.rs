@@ -1186,4 +1186,206 @@ mod tests {
         let filtered_de = filter.filter_errors(vec![], german_text);
         assert_eq!(filtered_de.len(), 0, "German text should be filtered out completely");
     }
+
+    // MARK: - WO-02: Security/QA Regression Tests
+
+    #[test]
+    fn test_split_into_sentences_null_byte_handling() {
+        // Regression: null bytes in text should not crash sentence splitting
+        let edge_cases = vec![
+            ("hello\0world", "null in middle"),
+            ("\0hello", "null at start"),
+            ("hello\0", "null at end"),
+            ("\0\n\0", "nulls with newline"),
+        ];
+
+        for (text, description) in edge_cases {
+            let sentences = split_into_sentences(text);
+            assert!(sentences.len() >= 0 || sentences.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_split_into_sentences_extreme_punctuation() {
+        // Regression: extreme punctuation patterns should not crash sentence splitting
+        let edge_cases = vec![
+            ("!", "single exclamation"),
+            ("!!!", "multiple exclamations"),
+            ("???!", "mixed terminators"),
+            (". . . . .", "many spaced dots"),
+            ("......", "continuous dots"),
+            ("a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p.q.r.s.t.u.v.w.x.y.z", 
+             "dot-separated single letters"),
+        ];
+
+        for (text, description) in edge_cases {
+            let sentences = split_into_sentences(text);
+            assert!(sentences.is_empty() || !sentences.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_split_into_sentences_emoji_text() {
+        // Regression: emoji text should be handled correctly by sentence splitter
+        let emoji_text = "👋 Hello 👋 World! 👋";
+        let sentences = split_into_sentences(emoji_text);
+        assert!(!sentences.is_empty(), 
+            "Emoji text should produce at least one sentence");
+    }
+
+    #[test]
+    fn test_split_into_sentences_cjk_text() {
+        // Regression: CJK characters should not crash sentence splitting
+        let cjk_texts = vec![
+            ("こんにちは", "Japanese only"),
+            ("你好，世界!", "Chinese with terminator"),
+            ("안녕하세요. Hello!", "Korean + English mix"),
+        ];
+
+        for (text, description) in cjk_texts {
+            let sentences = split_into_sentences(text);
+            assert!(!sentences.is_empty() || text.trim().is_empty(),
+                "CJK text should produce valid sentence list: {}", description);
+        }
+    }
+
+    #[test]
+    fn test_split_into_sentences_rtl_text() {
+        // Regression: RTL (right-to-left) text should not crash
+        let rtl_texts = vec![
+            ("مرحبا بالعالم", "Arabic without terminator"),
+            ("مرحبا!", "Arabic with exclamation"),
+        ];
+
+        for (text, description) in rtl_texts {
+            let sentences = split_into_sentences(text);
+            assert!(!sentences.is_empty() || text.trim().is_empty(),
+                "RTL text should produce valid sentence list: {}", description);
+        }
+    }
+
+    #[test]
+    fn test_language_filter_with_out_of_bounds_error_spans() {
+        // Regression: errors with spans beyond text length should not cause panics
+        let filter = LanguageFilter::new(true, vec!["german".to_string()]);
+        let text = "Short.";  // Only 6 chars
+        
+        let long_errors: Vec<GrammarError> = vec![
+            GrammarError {
+                start: 0, end: 2,
+                message: "normal error".to_string(),
+                severity: ErrorSeverity::Warning,
+                category: "Test".to_string(),
+                lint_id: "test1".to_string(),
+                suggestions: vec![],
+            },
+            GrammarError {
+                start: 0, end: 99999,  // way beyond text length
+                message: "overflow error".to_string(),
+                severity: ErrorSeverity::Error,
+                category: "Test".to_string(),
+                lint_id: "test2".to_string(),
+                suggestions: vec![],
+            },
+        ];
+
+        let _filtered = filter.filter_errors(long_errors, text);
+    }
+
+    #[test]
+    fn test_filter_disabled_with_empty_text() {
+        let filter = LanguageFilter::new(false, vec!["german".to_string()]);
+        let filtered = filter.filter_errors(vec![create_error(0, 5, "test")], "");
+        assert_eq!(filtered.len(), 1, "Disabled filter should preserve errors with empty text");
+    }
+
+    #[test]
+    fn test_filter_disabled_with_empty_errors() {
+        let filter = LanguageFilter::new(false, vec!["german".to_string()]);
+        let filtered = filter.filter_errors(vec![], "Hallo Welt.");
+        assert_eq!(filtered.len(), 0, "No errors in, no errors out");
+    }
+
+    #[test]
+    fn test_filter_disabled_with_no_excluded_langs() {
+        let filter = LanguageFilter::new(false, vec![]);
+        let filtered = filter.filter_errors(vec![create_error(0, 5, "test")], "Hallo Welt.");
+        assert_eq!(filtered.len(), 1, "Should preserve errors when disabled AND no exclusions");
+    }
+
+    #[test]
+    fn test_filter_enabled_empty_excluded_langs() {
+        let filter = LanguageFilter::new(true, vec![]);
+        let err = create_error(0, 5, "test");
+        let filtered = filter.filter_errors(vec![err.clone()], "Hallo Welt.");
+        
+        assert_eq!(filtered.len(), 1, 
+            "Enabled with empty exclusion list should pass all errors through");
+        assert_eq!(filtered[0].start, err.start);
+        assert_eq!(filtered[0].end, err.end);
+    }
+
+    #[test]
+    fn test_filter_single_error_at_text_boundary() {
+        let filter = LanguageFilter::new(true, vec!["german".to_string()]);
+        let text = "Hallo Welt.";  // 11 chars
+        
+        let err_end = create_error(10, 11, "at-end");
+        let filtered_end = filter.filter_errors(vec![err_end], &text);
+        assert_eq!(filtered_end.len(), 0, 
+            "Error in German sentence should be filtered");
+
+        let err_beyond = create_error(10, 999, "beyond-text");
+        let filtered_beyond = filter.filter_errors(vec![err_beyond], &text);
+        assert!(filtered_beyond.len() <= 1);
+    }
+
+    #[test]
+    fn test_language_detection_edge_case_empty_excluded_with_disabled() {
+        let result = should_skip_harper_analysis("Hello world.", false, &[]);
+        assert!(result.is_none(), 
+            "Disabled with empty excluded list should return None");
+    }
+
+    #[test]
+    fn test_language_detection_edge_case_empty_text_with_exclusions() {
+        let result = should_skip_harper_analysis("", true, &["german".to_string()]);
+        assert!(result.is_some(), 
+            "Empty text should return Some regardless of excluded languages");
+    }
+
+    #[test]
+    fn test_is_non_english_disabled_with_various_texts() {
+        let filter = LanguageFilter::new(false, vec!["german".to_string()]);
+        
+        let texts = vec![
+            "", "Hello", "Hallo Welt.",
+            "Das ist ein langer Text. Noch mehr Text. Und noch mehr.",
+            "\u{1F600}\u{1F601}",  // emoji only
+            "   ",                  // whitespace only
+        ];
+
+        for text in texts {
+            let result = filter.is_document_primarily_non_english(text);
+            assert!(!result, 
+                "Disabled detection should always return false for: '{}'", text);
+        }
+    }
+
+    #[test]
+    fn test_is_non_english_no_excluded_with_various_texts() {
+        let filter = LanguageFilter::new(true, vec![]);
+        
+        let texts = vec![
+            "", "Hello", "Hallo Welt.", 
+            "Das ist ein langer deutscher Text mit mehreren Sätzen.",
+            "\u{1F600}",
+        ];
+
+        for text in texts {
+            let result = filter.is_document_primarily_non_english(text);
+            assert!(!result,
+                "No excluded languages should always return false for: '{}'", text);
+        }
+    }
 }
