@@ -493,6 +493,104 @@ fn filter_emoji_capitalization_errors(errors: Vec<GrammarError>, text: &str) -> 
         .collect()
 }
 
+/// Check for dash style inconsistency within sentences.
+///
+/// Detects when em-dash (U+2014) and en-dash (U+2013) are mixed in the same sentence
+/// without clear stylistic purpose, which often indicates inconsistent formatting.
+/// Em-dashes should be used consistently for parenthetical breaks, while en-dashes
+/// should be reserved for ranges. Mixing them arbitrarily is a style error.
+fn check_dash_consistency(errors: Vec<GrammarError>, text: &str) -> Vec<GrammarError> {
+    if !text.contains('\u{2014}') && !text.contains('\u{2013}') {
+        return errors;
+    }
+
+    let mut new_errors = errors;
+    let sentence_boundaries = find_sentence_boundaries(text);
+    let all_text: Vec<char> = text.chars().collect();
+
+    for (start, end) in &sentence_boundaries {
+        if *start >= text.len() || *start + 1 >= *end {
+            continue;
+        }
+
+        let sentence_slice = &text[*start..(*end).min(text.len())];
+        let has_em_dash = sentence_slice.contains('\u{2014}');
+        let has_en_dash = sentence_slice.contains('\u{2013}');
+
+        if has_em_dash && has_en_dash {
+            // Find positions of em-dash and en-dash in the original text (byte-based char indices)
+            let mut em_positions: Vec<usize> = vec![];
+            let mut en_positions: Vec<usize> = vec![];
+            for (i, c) in all_text.iter().enumerate() {
+                if i >= *start && i < (*end).min(text.len()) {
+                    if *c == '\u{2014}' {
+                        em_positions.push(i);
+                    } else if *c == '\u{2013}' {
+                        en_positions.push(i);
+                    }
+                }
+            }
+
+            for em_pos in &em_positions {
+                for en_pos in &en_positions {
+                    // If an em-dash and en-dash appear close together (< 20 chars),
+                    // it's likely a style inconsistency error
+                    if (*em_pos as isize - *en_pos as isize).abs() < 20 {
+                        let dash_char = if *em_pos < *en_pos { '\u{2014}' } else { '\u{2013}' };
+                        // byte offset: count chars before the position
+                        let byte_pos = text[..*em_pos].chars().count();
+                        let err = GrammarError {
+                            start: byte_pos,
+                            end: byte_pos + dash_char.len_utf8(),
+                            message: "Inconsistent dash style detected; use one consistent dash style throughout".to_string(),
+                            severity: ErrorSeverity::Warning,
+                            category: "DashStyle".to_string(),
+                            lint_id: "DashStyle::inconsistent_dashes".to_string(),
+                            suggestions: vec![],
+                        };
+                        new_errors.push(err);
+                    }
+                }
+            }
+        }
+    }
+
+    new_errors
+}
+
+/// Find sentence boundaries in text as (start_byte, end_byte) pairs.
+///
+/// Returns byte positions of sentence starts and ends based on common
+/// sentence-terminating punctuation followed by whitespace or end of string.
+fn find_sentence_boundaries(text: &str) -> Vec<(usize, usize)> {
+    let mut boundaries = Vec::new();
+    let mut current_start = 0;
+
+    for (i, c) in text.char_indices() {
+        if matches!(c, '.' | '!' | '?' | ':') {
+            // Check if next non-whitespace char exists (sentence continues)
+            let after = &text[i + c.len_utf8()..];
+            let trimmed = after.trim_start();
+            if trimmed.is_empty() || !trimmed.chars().next().unwrap().is_alphabetic() {
+                boundaries.push((current_start, i + c.len_utf8()));
+                current_start = i + c.len_utf8();
+                // Skip whitespace for next sentence start
+                let skip_ws: usize = after[..after.len() - trimmed.len()].chars().count();
+                if !trimmed.is_empty() {
+                    current_start += skip_ws;
+                }
+            }
+        }
+    }
+
+    // Add final sentence if text doesn't end with punctuation
+    if current_start < text.len() && boundaries.last().map_or(true, |(_, end)| *end != text.len()) {
+        boundaries.push((current_start, text.len()));
+    }
+
+    boundaries
+}
+
 /// Capitalize standalone "I" pronouns throughout a string.
 ///
 /// The English pronoun "I" should always be capitalized. This function finds
@@ -956,6 +1054,20 @@ pub fn analyze_text(
             errors.len(),
             errors_before_emoji - errors.len()
         );
+    }
+
+    // Check for dash style inconsistency (em-dash vs en-dash mixing)
+    if check_dashes {
+        let errors_before_dash = errors.len();
+        errors = check_dash_consistency(errors, text);
+        if errors_before_dash != errors.len() {
+            tracing::debug!(
+                "Dash consistency check: {} errors before, {} after (added {})",
+                errors_before_dash,
+                errors.len(),
+                errors.len() - errors_before_dash
+            );
+        }
     }
 
     // Apply language detection filter to remove errors for non-English words
@@ -6440,6 +6552,68 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_dash_handling_consistency() {
+        // Test that mixed dash styles in the same sentence are detected as errors
+        
+        // Case 1: em-dash and en-dash close together triggers inconsistency warning
+        let result1 = analyze_text(
+            "The range is — to – clear",
+            "American",
+            false, false, false, false, false, false, false,
+            vec![],
+            true, true, true, true, true,
+        );
+        
+        let dash_errors: Vec<&GrammarError> = result1.errors.iter()
+            .filter(|e| e.category == "DashStyle")
+            .collect();
+        assert!(!dash_errors.is_empty(), 
+            "Should detect inconsistent dash style; got {} errors", 
+            result1.errors.len());
+        
+        // Case 2: consistent em-dashes should NOT trigger inconsistency (even if Harper catches other issues)
+        let result2 = analyze_text(
+            "She arrived—happy to see them—and left immediately.",
+            "American",
+            false, false, false, false, false, false, false,
+            vec![],
+            true, true, true, true, true,
+        );
+        
+        let dash_style_errors: Vec<&GrammarError> = result2.errors.iter()
+            .filter(|e| e.category == "DashStyle")
+            .collect();
+        assert!(dash_style_errors.is_empty(),
+            "Consistent em-dashes should not trigger DashStyle errors; got {:?}",
+            dash_style_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+        
+        // Case 3: consistent en-dashes in ranges should NOT trigger inconsistency
+        let result3 = analyze_text(
+            "Read pages 10–15 for the assignment.",
+            "American",
+            false, false, false, false, false, false, false,
+            vec![],
+            true, true, true, true, true,
+        );
+        
+        let dash_style_errors3: Vec<&GrammarError> = result3.errors.iter()
+            .filter(|e| e.category == "DashStyle")
+            .collect();
+        assert!(dash_style_errors3.is_empty(),
+            "Consistent en-dashes should not trigger DashStyle errors");
+
+        // Case 4: Verify word_count is valid for all dash types (no panics)
+        let result4 = analyze_text(
+            "This works with -- hyphens too.",
+            "American",
+            false, false, false, false, false, false, false,
+            vec![],
+            true, true, true, true, true,
+        );
+        assert!(result4.word_count > 0, "Should parse text correctly");
     }
 
     #[test]
