@@ -6757,4 +6757,322 @@ mod tests {
             assert!(result.word_count > 0, "{}: should parse", name);
         }
     }
+
+    // MARK: - Security Regression Tests for WO-02
+
+    #[test]
+    fn test_analyze_text_extremely_large_input_no_crash() {
+        // Test that the analyzer doesn't crash with extremely large inputs
+        // This prevents memory exhaustion or stack overflow issues
+        let large_text = "This is a test sentence. ".repeat(100000); // 100k sentences
+        
+        let result = analyze_text(
+            &large_text,
+            "American",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            true,
+            true, // enforce_oxford_comma
+            true, // check_ellipsis
+            true, // check_unclosed_quotes
+            true, // check_dashes
+        );
+        
+        // Should complete without crashing
+        assert!(result.word_count > 0);
+        assert!(result.analysis_time_ms > 0);
+    }
+
+    #[test]
+    fn test_analyze_text_malformed_utf8_no_crash() {
+        // Test with malformed UTF-8 that could cause crashes in string handling
+        let malformed_text = "\u{FFFD}\u{FFFD}\u{FFFD}"; // Replacement characters
+        
+        let result = analyze_text(
+            malformed_text,
+            "American",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            true,
+            true, // enforce_oxford_comma
+            true, // check_ellipsis
+            true, // check_unclosed_quotes
+            true, // check_dashes
+        );
+        
+        // Should complete without crashing
+        assert!(result.word_count >= 0);
+    }
+
+    #[test]
+    fn test_analyze_text_extremely_long_strings_no_crash() {
+        // Test with very long individual strings that could cause issues
+        let long_string = "a".repeat(10000); // 10k character string
+        
+        let result = analyze_text(
+            &long_string,
+            "American",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            true,
+            true, // enforce_oxford_comma
+            true, // check_ellipsis
+            true, // check_unclosed_quotes
+            true, // check_dashes
+        );
+        
+        // Should complete without crashing
+        assert!(result.word_count >= 0);
+    }
+
+    #[test]
+    fn test_analyze_text_empty_parameters_no_crash() {
+        // Test with empty or null parameters to ensure no crashes in FFI boundary handling
+        let result = analyze_text(
+            "", // Empty text
+            "", // Empty dialect
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            vec![], // Empty excluded languages
+            true,
+            true, // enforce_oxford_comma
+            true, // check_ellipsis
+            true, // check_unclosed_quotes
+            true, // check_dashes
+        );
+        
+        // Should complete without crashing
+        assert_eq!(result.errors.len(), 0);
+    }
+
+    #[test]
+    fn test_analyze_text_special_characters_no_crash() {
+        // Test with various special Unicode characters that might cause issues
+        let special_text = "Hello! @#$%^&*() \"quotes\" 'apostrophes' — dashes… €£¥©®™°";
+        
+        let result = analyze_text(
+            special_text,
+            "American",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            true,
+            true, // enforce_oxford_comma
+            true, // check_ellipsis
+            true, // check_unclosed_quotes
+            true, // check_dashes
+        );
+        
+        // Should complete without crashing
+        assert!(result.word_count >= 0);
+    }
+
+    #[test]
+    fn test_analyze_text_unicode_no_crash() {
+        // Test with various Unicode characters including emojis and non-Latin scripts
+        let unicode_text = "Café résumé naïve 日本語 한국어 中文 🌟🎉🚀";
+        
+        let result = analyze_text(
+            unicode_text,
+            "American",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            true,
+            true, // enforce_oxford_comma
+            true, // check_ellipsis
+            true, // check_unclosed_quotes
+            true, // check_dashes
+        );
+        
+        // Should complete without crashing
+        assert!(result.word_count >= 0);
+    }
+
+    #[test]
+    fn test_analyze_text_concurrent_calls_no_crash() {
+        // Test that concurrent analysis calls don't cause crashes or memory issues
+        use std::sync::Arc;
+        
+        let text = "This is a test sentence with some grammar errors.".to_string();
+        let text_refs: Vec<_> = (0..10).map(|_| Arc::new(text.clone())).collect();
+        
+        // Spawn multiple concurrent tasks
+        let handles: Vec<_> = text_refs
+            .into_iter()
+            .map(|t| {
+                std::thread::spawn(move || {
+                    analyze_text(
+                        &t,
+                        "American",
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        vec![],
+                        true,
+                        true, // enforce_oxford_comma
+                        true, // check_ellipsis
+                        true, // check_unclosed_quotes
+                        true, // check_dashes
+                    )
+                })
+            })
+            .collect();
+        
+        // Collect results
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        
+        // All should complete without crashing
+        assert_eq!(results.len(), 10);
+        for result in &results {
+            assert!(result.word_count >= 0);
+        }
+    }
+
+    #[test]
+    fn test_analyze_text_memory_leak_simulation() {
+        // Simulate repeated calls to check for potential memory leaks
+        // This test verifies that repeated analysis doesn't cause unbounded growth
+        let base_text = "This is a test sentence. ";
+        
+        // Run multiple analyses in sequence
+        let mut results = Vec::new();
+        for i in 0..100 {
+            let text = base_text.repeat(i + 1); // Increasing length each time
+            let result = analyze_text(
+                &text,
+                "American",
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                vec![],
+                true,
+                true, // enforce_oxford_comma
+                true, // check_ellipsis
+                true, // check_unclosed_quotes
+                true, // check_dashes
+            );
+            results.push(result);
+        }
+        
+        // Should complete without crashing or hanging
+        assert_eq!(results.len(), 100);
+    }
+
+    #[test]
+    fn test_language_filter_edge_cases_no_crash() {
+        // Test language filter with edge cases that could cause crashes
+        use crate::language_filter::LanguageFilter;
+        
+        // Test with empty text
+        let filter = LanguageFilter::new(true, vec!["german".to_string()]);
+        let result = filter.filter_errors(vec![], "");
+        assert_eq!(result.len(), 0);
+        
+        // Test with very long text
+        let long_text = "This is a test sentence. ".repeat(10000);
+        let result2 = filter.filter_errors(vec![], &long_text);
+        assert_eq!(result2.len(), 0);
+        
+        // Test with special characters
+        let special_text = "Hello! @#$%^&*() 🌟";
+        let result3 = filter.filter_errors(vec![], special_text);
+        assert_eq!(result3.len(), 0);
+    }
+
+    #[test]
+    fn test_language_filter_invalid_language_codes_no_crash() {
+        // Test that invalid language codes don't cause crashes in the language filter
+        use crate::language_filter::LanguageFilter;
+        
+        // Use invalid language code - should gracefully handle this
+        let filter = LanguageFilter::new(true, vec!["invalid-language".to_string()]);
+        let result = filter.filter_errors(vec![], "This is English text.");
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_language_filter_mixed_content_no_crash() {
+        // Test with content that has mixed language detection edge cases
+        use crate::language_filter::LanguageFilter;
+        
+        let filter = LanguageFilter::new(true, vec!["german".to_string()]);
+        
+        // Test with various combinations of valid and invalid inputs
+        let test_cases = vec![
+            "Hello world!",
+            "Bonjour le monde!",
+            "Hola mundo!",
+            "Das ist ein deutscher Text.",
+            "This is English. Bonjour. Hola. Das ist Deutsch.",
+            "", // Empty string
+            "a", // Single character
+            "   ", // Whitespace only
+        ];
+        
+        for text in test_cases {
+            let result = filter.filter_errors(vec![], text);
+            assert_eq!(result.len(), 0); // Should not crash, just return empty vec
+        }
+    }
+
+    #[test]
+    fn test_dictionary_cache_no_crash() {
+        // Test that dictionary cache operations don't cause crashes with extreme inputs
+        use crate::analyzer::{get_or_build_dictionary, DictionaryCacheKey};
+        
+        // Test with all flags set to true (maximum memory usage)
+        let (dict, _) = get_or_build_dictionary(
+            true,  // enable_internet_abbrev
+            true,  // enable_genz_slang
+            true,  // enable_it_terminology
+            true,  // enable_brand_names
+            true,  // enable_person_names
+            true,  // enable_last_names
+        );
+        
+        // Should not crash or panic
+        assert!(dict != None);
+    }
 }

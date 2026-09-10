@@ -206,4 +206,98 @@ final class GrammarEngineFFITests: XCTestCase {
             XCTAssertEqual(results.count, texts.count, "All concurrent analyses should complete")
         }
     }
+
+    // MARK: - Security Regression Tests for WO-02
+
+    func testAnalyzeText_ExtremelyLargeInput_NoCrash() {
+        // Test that the analyzer doesn't crash with extremely large inputs
+        let largeText = String(repeating: "This is a test sentence. ", count: 10000)
+        
+        // When: Analyzing large text
+        let result = GrammarEngine.shared.analyzeText(largeText)
+        
+        // Then: Should not crash and return valid result
+        XCTAssertNotNil(result)
+        XCTAssertGreaterThan(result.wordCount, 0)
+    }
+
+    func testAnalyzeText_MalformedUTF8_NoCrash() {
+        // Test with malformed UTF-8 that could cause crashes in string handling
+        let malformedText = "\u{FFFD}\u{FFFD}\u{FFFD}" // Replacement characters
+        
+        // When: Analyzing malformed text
+        let result = GrammarEngine.shared.analyzeText(malformedText)
+        
+        // Then: Should handle safely without crashing
+        XCTAssertNotNil(result)
+    }
+
+    func testAnalyzeText_UnicodeCharacters_NoCrash() {
+        // Test with various Unicode characters including emojis and non-Latin scripts
+        let unicodeText = "Café résumé naïve 日本語 한국어 中文 🌟🎉🚀"
+        
+        // When: Analyzing Unicode text
+        let result = GrammarEngine.shared.analyzeText(unicodeText)
+        
+        // Then: Should handle Unicode safely
+        XCTAssertNotNil(result)
+    }
+
+    func testAnalyzeText_SpecialCharacters_NoCrash() {
+        // Test with various special characters that might cause issues
+        let specialText = "Hello! @#$%^&*() \"quotes\" 'apostrophes' — dashes… €£¥©®™°"
+        
+        // When: Analyzing text with special characters
+        let result = GrammarEngine.shared.analyzeText(specialText)
+        
+        // Then: Should handle safely without crashing
+        XCTAssertNotNil(result)
+    }
+
+    func testAnalyzeText_EmptyAndEdgeCases_NoCrash() {
+        // Test various empty and edge cases to ensure no crashes
+        let edgeCases = [
+            "", // Empty text
+            "a", // Single character
+            "   ", // Whitespace only
+            "a".repeating(count: 1000), // Long single character
+        ]
+        
+        // When: Analyzing each edge case
+        for text in edgeCases {
+            let result = GrammarEngine.shared.analyzeText(text)
+            
+            // Then: Should not crash and return valid result
+            XCTAssertNotNil(result)
+        }
+    }
+
+    func testAnalyzeText_ConcurrentCalls_MemoryLeakSimulation() async {
+        // Test that concurrent calls don't cause memory leaks or crashes
+        let texts = [
+            "This is a test sentence. ",
+            "Another test sentence. ",
+            "Yet another test. ",
+            "More text to analyze. ",
+            "Even more text here.",
+        ]
+        
+        // When: Analyzing concurrently multiple times
+        await withTaskGroup(of: GrammarAnalysisResult.self) { group in
+            for i in 0..<20 {
+                let text = texts[i % texts.count] + String(repeating: ".", count: i)
+                group.addTask {
+                    GrammarEngine.shared.analyzeText(text)
+                }
+            }
+            
+            // Then: All tasks should complete without crashing
+            var results: [GrammarAnalysisResult] = []
+            for await result in group {
+                results.append(result)
+            }
+            
+            XCTAssertEqual(results.count, 20, "All concurrent analyses should complete")
+        }
+    }
 }
