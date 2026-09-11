@@ -186,4 +186,77 @@ mod tests {
         // Should not panic even without callback
         SwiftLoggerLayer::send_to_swift(2, "Test message");
     }
+
+    // MARK: - WO-02: Security/QA Regression Tests (bounded inputs with behavioral assertions)
+
+    #[test]
+    fn test_level_to_int_all_values() {
+        // Verify all tracing levels map to correct integer values for FFI
+        assert_eq!(SwiftLoggerLayer::level_to_int(&Level::ERROR), 0);
+        assert_eq!(SwiftLoggerLayer::level_to_int(&Level::WARN), 1);
+        assert_eq!(SwiftLoggerLayer::level_to_int(&Level::INFO), 2);
+        assert_eq!(SwiftLoggerLayer::level_to_int(&Level::DEBUG), 3);
+        assert_eq!(SwiftLoggerLayer::level_to_int(&Level::TRACE), 4);
+
+        // Verify ordering: ERROR < WARN < INFO < DEBUG < TRACE
+        assert!(SwiftLoggerLayer::level_to_int(&Level::ERROR) < 
+                SwiftLoggerLayer::level_to_int(&Level::WARN));
+        assert!(SwiftLoggerLayer::level_to_int(&Level::TRACE) > 
+                SwiftLoggerLayer::level_to_int(&Level::DEBUG));
+    }
+
+    #[test]
+    fn test_send_to_swift_no_crash_without_callback() {
+        // Multiple calls without callback must not panic or crash
+        for i in 0..50 {
+            SwiftLoggerLayer::send_to_swift(i % 5, &format!("Test message {}", i));
+        }
+    }
+
+    #[test]
+    fn test_send_to_swift_various_message_lengths() {
+        // Messages of various lengths must not crash when no callback is registered
+        let messages = vec![
+            "",                        // empty
+            "a",                       // single char
+            "Hello world",             // normal
+            "\u{1F600}\u{1F44B}",     // emoji
+            "日本語テスト",           // CJK
+            "مرحبا بالعالم",           // Arabic RTL
+        ];
+
+        for msg in messages {
+            SwiftLoggerLayer::send_to_swift(2, msg);  // INFO level
+        }
+    }
+
+    #[test]
+    fn test_register_callback_idempotent() {
+        // Registering a callback multiple times should be safe (last one wins)
+        // Use a null pointer to test safe registration without actual callback
+        let dummy: SwiftLogCallback = unsafe { std::mem::transmute(0usize) };
+        
+        register_swift_callback(dummy);
+        // Null pointer means has_swift_callback returns false (null check in impl)
+        assert!(!has_swift_callback(), "Null callback should not be considered registered");
+        
+        // Re-registering the same null callback is safe
+        register_swift_callback(dummy);
+        assert!(!has_swift_callback());
+    }
+
+    #[test]
+    fn test_send_to_swift_unicode_content() {
+        // Unicode content in messages must be handled without panic
+        let unicode_texts = vec![
+            "Hello \u{1F600} world",
+            "こんにちは世界",
+            "📁\u{2764}\u{1F4BB}",
+            "\u{3000}",  // CJK space
+        ];
+
+        for text in unicode_texts {
+            SwiftLoggerLayer::send_to_swift(2, &text);  // no crash = pass
+        }
+    }
 }

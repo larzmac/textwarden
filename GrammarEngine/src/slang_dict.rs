@@ -722,4 +722,102 @@ mod tests {
 
         println!("Loaded {} last names", names.len());
     }
+
+    // MARK: - WO-02: Security/QA Regression Tests (bounded inputs with behavioral assertions)
+
+    #[test]
+    fn test_load_words_lowercase_only_edge_cases() {
+        // Test load_words_lowercase_only handles edge cases correctly
+        let cases = vec![
+            ("", 0, "empty string"),
+            ("   ", 0, "whitespace only"),
+            ("# comment only", 0, "comment only"),
+            ("#\n# another comment\n", 0, "multiple comments"),
+            ("\n\n\n", 0, "newlines only"),
+            ("word", 1, "single word no newline"),
+            ("WORD", 1, "uppercase single word"),
+            ("wo\0rd", 1, "null byte in middle"), // null byte is preserved but lowercased
+        ];
+
+        for (input, expected_count, desc) in cases {
+            let words = load_words_lowercase_only(input);
+            assert_eq!(words.len(), expected_count, 
+                "{}: expected {} words, got {} for '{}'", desc, expected_count, words.len(), input);
+            
+            // All loaded words must be lowercase
+            for (chars, _) in &words {
+                let word: String = chars.iter().collect();
+                assert_eq!(word.to_lowercase(), word, "Word '{}' must be lowercase", word);
+            }
+        }
+    }
+
+    #[test]
+    fn test_load_words_lowercase_only_whitespace_variants() {
+        // Various whitespace characters should be trimmed correctly
+        let input = "\tBTW\t\n\x0CFYI\r\n\rvia";
+        let words = load_words_lowercase_only(input);
+        
+        assert_eq!(words.len(), 3, "Should extract 3 words from mixed whitespace");
+        let word_strings: Vec<String> = words.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        assert!(word_strings.contains(&"btw".to_string()));
+        assert!(word_strings.contains(&"fyi".to_string()));
+        assert!(word_strings.contains(&"via".to_string()));
+    }
+
+    #[test]
+    fn test_load_words_lowercase_only_unicode() {
+        // Unicode characters should be lowercased correctly
+        let input = "HELLO\nWORLD\ncafé";
+        let words = load_words_lowercase_only(input);
+        
+        assert_eq!(words.len(), 3, "Should handle unicode correctly");
+        let word_strings: Vec<String> = words.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        assert_eq!(word_strings[0], "hello");
+        assert_eq!(word_strings[1], "world");
+        assert_eq!(word_strings[2], "café"); // Unicode lowercase is identity for this char
+    }
+
+    #[test]
+    fn test_wordlist_category_info_all_categories() {
+        // All wordlist categories must have valid metadata (non-empty names, reasonable estimates)
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            let info = category.info();
+            assert!(!info.name.is_empty(), "{:?}: name must not be empty", category);
+            assert!(!info.description.is_empty(), "{:?}: description must not be empty", category);
+            assert!(info.word_count_estimate > 0, 
+                "{:?}: word_count_estimate must be positive", category);
+        }
+    }
+
+    #[test]
+    fn test_wordlist_lowercase_only_all_categories() {
+        // All loaded words from every category must be lowercase only
+        let categories = vec![
+            ("abbreviations", WordlistCategory::InternetAbbreviations),
+            ("genz_slang", WordlistCategory::GenZSlang),
+            ("it_terms", WordlistCategory::ITTerminology),
+            ("brand_names", WordlistCategory::BrandNames),
+        ];
+
+        for (name, category) in categories {
+            let words = category.load_words();
+            assert!(words.len() > 0, "{} must load at least one word", name);
+            
+            for (chars, _) in &words {
+                let word: String = chars.iter().collect();
+                assert_eq!(word.to_lowercase(), word, 
+                    "Word '{}' from {} is not lowercase", word, name);
+            }
+        }
+    }
 }
