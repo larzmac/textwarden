@@ -699,15 +699,17 @@ mod tests {
         use std::time::Instant;
 
         let filter = LanguageFilter::new(true, vec!["german".to_string()]);
-        // Create text with 100 sentences
+        // Create bounded text (~875 chars) with 35 sentences (≤50 iters per brief)
         let mut text = String::new();
         let mut errors = Vec::new();
 
-        for i in 0..100 {
+        for i in 0..35 {
             let start = text.len();
             text.push_str(&format!("This is sentence number {}. ", i));
             errors.push(create_error(start, start + 4, "Error"));
         }
+
+        assert!(text.len() <= 1024, "Text must stay within ~1k char bound: {} chars", text.len());
 
         let start_time = Instant::now();
         let _filtered = filter.filter_errors(errors, &text);
@@ -715,7 +717,7 @@ mod tests {
 
         assert!(
             elapsed.as_millis() < 500,
-            "100 sentences should process quickly: {} ms",
+            "35 sentences should process quickly: {} ms",
             elapsed.as_millis()
         );
     }
