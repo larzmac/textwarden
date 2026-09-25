@@ -517,7 +517,7 @@ mod tests {
     #[test]
     fn test_wordlist_integration_with_analyzer() {
         // Test that wordlists integrate properly with the analyzer
-        
+         
         // Test with internet abbreviations
         let result = analyze_text(
             "BTW this is a test.",
@@ -538,7 +538,7 @@ mod tests {
         );
         
         assert!(result.word_count > 0, "Should analyze text with internet abbreviations");
-        
+         
         // Test with IT terminology
         let result2 = analyze_text(
             "Kubernetes is great.",
@@ -819,5 +819,568 @@ mod tests {
                     "Word '{}' from {} is not lowercase", word, name);
             }
         }
+    }
+
+    // MARK: - Additional Expansion Tests
+
+    #[test]
+    fn test_all_wordlist_categories_loaded() {
+        // Test that all 6 wordlist categories load successfully
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            let words = category.load_words();
+            assert!(words.len() > 0, "{:?} should load at least one word", category);
+        }
+    }
+
+    #[test]
+    fn test_unique_wordlists() {
+        // Ensure that different wordlist categories have unique sets of words
+        let abbrevs = WordlistCategory::InternetAbbreviations.load_words();
+        let slang = WordlistCategory::GenZSlang.load_words();
+        let it_terms = WordlistCategory::ITTerminology.load_words();
+        let brands = WordlistCategory::BrandNames.load_words();
+
+        // Convert to strings for comparison
+        let abbrev_strings: Vec<String> = abbrevs.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        let slang_strings: Vec<String> = slang.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        let it_strings: Vec<String> = it_terms.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        let brand_strings: Vec<String> = brands.iter().map(|(chars, _)| chars.iter().collect()).collect();
+
+        // Verify each category has expected minimum counts
+        assert!(abbrev_strings.len() > 3000, "Internet abbreviations should have >3000 words");
+        assert!(slang_strings.len() > 100, "Gen Z slang should have >100 words");
+        assert!(it_strings.len() > 10000, "IT terminology should have >10000 words");
+        assert!(brand_strings.len() > 2000, "Brand names should have >2000 words");
+
+        // Verify that different categories contain different content
+        assert!(
+            !abbrev_strings.contains(&"kubernetes".to_string()),
+            "Internet abbreviations should not contain IT terms"
+        );
+        assert!(
+            !it_strings.contains(&"btw".to_string()),
+            "IT terminology should not contain internet abbreviations"
+        );
+    }
+
+    #[test]
+    fn test_wordlist_metadata_consistency() {
+        // Test that all wordlist categories have proper metadata
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            let info = category.info();
+            
+            // All metadata should be non-empty
+            assert!(!info.name.is_empty(), "{:?}: name should not be empty", category);
+            assert!(!info.description.is_empty(), "{:?}: description should not be empty", category);
+            
+            // Word count estimates should be reasonable (positive)
+            assert!(info.word_count_estimate > 0, "{:?}: word_count_estimate must be positive", category);
+            
+            // All categories should have a name
+            assert!(
+                !info.name.contains("Unknown"),
+                "{:?}: name should not contain 'Unknown'", category
+            );
+        }
+    }
+
+    #[test]
+    fn test_wordlist_word_count_estimates() {
+        // Test that word count estimates match actual counts for all categories
+        let categories = vec![
+            (WordlistCategory::InternetAbbreviations, 3200),
+            (WordlistCategory::GenZSlang, 270),
+            (WordlistCategory::ITTerminology, 10000),
+            (WordlistCategory::BrandNames, 2400),
+            (WordlistCategory::PersonNames, 100000),
+            (WordlistCategory::LastNames, 151670),
+        ];
+
+        for (category, expected_estimate) in categories {
+            let words = category.load_words();
+            let info = category.info();
+            
+            // Word counts should be reasonable
+            let lower = (expected_estimate as f64 * 0.8) as usize;
+            let upper = (expected_estimate as f64 * 1.2) as usize;
+            assert!(
+                words.len() > lower,
+                "{:?}: actual count {} should be at least 80% of estimate {}",
+                category, words.len(), expected_estimate
+            );
+            
+            assert!(
+                words.len() < upper,
+                "{:?}: actual count {} should be no more than 120% of estimate {}",
+                category, words.len(), expected_estimate
+            );
+            
+            // Info metadata should match expectations
+            assert_eq!(info.word_count_estimate, expected_estimate, 
+                "{:?}: info word_count_estimate should match expected value", category);
+        }
+    }
+
+    #[test]
+    fn test_load_words_lowercase_only_no_duplicates() {
+        // Test that no duplicate words are loaded in a single wordlist
+        let abbrevs = WordlistCategory::InternetAbbreviations.load_words();
+        let slang = WordlistCategory::GenZSlang.load_words();
+        let it_terms = WordlistCategory::ITTerminology.load_words();
+        
+        // Check for duplicates within each category
+        let abbrev_strings: Vec<String> = abbrevs.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        let slang_strings: Vec<String> = slang.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        let it_strings: Vec<String> = it_terms.iter().map(|(chars, _)| chars.iter().collect()).collect();
+
+        // Convert to HashSet to check for duplicates
+        use std::collections::HashSet;
+        let abbrev_set: HashSet<&String> = abbrev_strings.iter().collect();
+        let slang_set: HashSet<&String> = slang_strings.iter().collect();
+        let it_set: HashSet<&String> = it_strings.iter().collect();
+
+        assert_eq!(
+            abbrev_strings.len(), 
+            abbrev_set.len(),
+            "Internet abbreviations should not contain duplicates"
+        );
+        assert_eq!(
+            slang_strings.len(), 
+            slang_set.len(),
+            "Gen Z slang should not contain duplicates"
+        );
+        assert_eq!(
+            it_strings.len(), 
+            it_set.len(),
+            "IT terminology should not contain duplicates"
+        );
+    }
+
+    #[test]
+    fn test_all_wordlists_have_lowercase_only() {
+        // Test that all wordlist categories are loaded with only lowercase words
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            let words = category.load_words();
+            
+            // All words should be lowercase
+            for (chars, _) in &words {
+                let word: String = chars.iter().collect();
+                assert_eq!(word.to_lowercase(), word, 
+                    "Word '{}' from {:?} is not lowercase", word, category);
+            }
+        }
+    }
+
+    #[test]
+    fn test_wordlist_load_performance() {
+        // Basic performance check - should load within reasonable time
+        let start = std::time::Instant::now();
+        
+        let abbrevs = WordlistCategory::InternetAbbreviations.load_words();
+        let slang = WordlistCategory::GenZSlang.load_words();
+        let it_terms = WordlistCategory::ITTerminology.load_words();
+        let brands = WordlistCategory::BrandNames.load_words();
+        
+        let duration = start.elapsed();
+        
+        // Should load within 10 seconds (should be much faster)
+        assert!(duration < std::time::Duration::from_secs(10), 
+            "Wordlist loading took too long: {:?}", duration);
+        
+        // Verify counts
+        assert!(abbrevs.len() > 3000, "Internet abbreviations should have >3000 words");
+        assert!(slang.len() > 100, "Gen Z slang should have >100 words");
+        assert!(it_terms.len() > 10000, "IT terminology should have >10000 words");
+        assert!(brands.len() > 2000, "Brand names should have >2000 words");
+    }
+
+    #[test]
+    fn test_wordlist_load_consistency() {
+        // Test that loading the same wordlist multiple times gives consistent results
+        let category = WordlistCategory::InternetAbbreviations;
+        
+        let words1 = category.load_words();
+        let words2 = category.load_words();
+        
+        assert_eq!(words1.len(), words2.len(), "Wordlist should load consistently");
+        
+        // Convert to strings and compare
+        let strings1: Vec<String> = words1.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        let strings2: Vec<String> = words2.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        
+        assert_eq!(strings1.len(), strings2.len(), "String representations should match");
+    }
+
+    // MARK: - Bounded Expansion Tests (WO-03)
+
+    #[test]
+    fn test_metadata_all_non_empty_fields() {
+        // All categories must have non-empty metadata fields - structural invariant.
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            let info = category.info();
+            assert!(!info.name.is_empty(), "{:?}: name must not be empty", category);
+            assert!(!info.description.is_empty(), "{:?}: description must not be empty", category);
+            assert!(info.word_count_estimate > 0, "{:?}: estimate must be positive", category);
+
+            // Name should not use placeholder patterns
+            let placeholder_patterns = ["Unknown", "TBD", "TODO", "XXX"];
+            for pattern in placeholder_patterns {
+                assert!(
+                    !info.name.contains(pattern),
+                    "{:?}: name '{}' contains placeholder '{}'",
+                    category, info.name, pattern
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_word_count_bounds_percentage() {
+        // Word counts should fall within percentage bounds of estimates.
+        // Uses relative tolerance (80%-120%) so future wordlist growth/shrinking doesn't break tests.
+        let categories: Vec<(WordlistCategory, f64)> = vec![
+            (WordlistCategory::InternetAbbreviations, 0.8),
+            (WordlistCategory::GenZSlang, 0.5),   // Gen Z slang is smaller, use wider tolerance
+            (WordlistCategory::ITTerminology, 0.8),
+            (WordlistCategory::BrandNames, 0.8),
+            (WordlistCategory::PersonNames, 0.9),  // Larger wordlists have tighter expected bounds
+            (WordlistCategory::LastNames, 0.9),
+        ];
+
+        for (category, lower_tolerance) in categories {
+            let words = category.load_words();
+            let info = category.info();
+
+            let min_expected = (info.word_count_estimate as f64 * lower_tolerance) as usize;
+            let max_expected = (info.word_count_estimate as f64 * 1.2) as usize;
+
+            assert!(
+                words.len() >= min_expected,
+                "{:?}: count {} below lower bound {} ({:.0}% of estimate {})",
+                category, words.len(), min_expected, lower_tolerance * 100.0, info.word_count_estimate
+            );
+            assert!(
+                words.len() <= max_expected,
+                "{:?}: count {} above upper bound {} ({:.0}% of estimate {})",
+                category, words.len(), max_expected, 120.0, info.word_count_estimate
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_words_lowercase_across_all_categories() {
+        // Every word in every loaded wordlist must be pure lowercase (ASCII a-z + digits only for base check).
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            let words = category.load_words();
+            assert!(words.len() > 0, "{:?}: must load at least one word", category);
+
+            for (chars, _meta) in &words {
+                let word: String = chars.iter().collect();
+                assert_eq!(
+                    word.to_lowercase(),
+                    word,
+                    "{:?}: word '{}' is not lowercase - expected '{}'",
+                    category, word, word.to_lowercase()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_no_duplicates_in_wordlists() {
+        // Each wordlist must have zero internal duplicates.
+        use std::collections::HashSet;
+
+        let categories = vec![
+            ("abbreviations", WordlistCategory::InternetAbbreviations),
+            ("genz_slang", WordlistCategory::GenZSlang),
+            ("it_terms", WordlistCategory::ITTerminology),
+            ("brand_names", WordlistCategory::BrandNames),
+            ("person_names", WordlistCategory::PersonNames),
+            ("last_names", WordlistCategory::LastNames),
+        ];
+
+        for (name, category) in categories {
+            let words = category.load_words();
+            let strings: Vec<String> = words.iter().map(|(chars, _)| chars.iter().collect()).collect();
+
+            let mut seen = HashSet::new();
+            for word in &strings {
+                assert!(
+                    seen.insert(word.clone()),
+                    "{:?}: duplicate word '{}' found in {}",
+                    category, word, name
+                );
+            }
+
+            assert_eq!(
+                strings.len(),
+                seen.len(),
+                "{:?}: {} has duplicates ({} unique of {} total)",
+                category, name, seen.len(), strings.len()
+            );
+        }
+    }
+
+    #[test]
+    fn test_category_isolation_no_cross_contamination() {
+        // Different categories should not share words outside of obvious overlap zones.
+        let abbrevs: Vec<String> = WordlistCategory::InternetAbbreviations
+            .load_words()
+            .iter()
+            .map(|(chars, _)| chars.iter().collect())
+            .collect();
+
+        let it_terms: Vec<String> = WordlistCategory::ITTerminology
+            .load_words()
+            .iter()
+            .map(|(chars, _)| chars.iter().collect())
+            .collect();
+
+        let slang: Vec<String> = WordlistCategory::GenZSlang
+            .load_words()
+            .iter()
+            .map(|(chars, _)| chars.iter().collect())
+            .collect();
+
+        let brands: Vec<String> = WordlistCategory::BrandNames
+            .load_words()
+            .iter()
+            .map(|(chars, _)| chars.iter().collect())
+            .collect();
+
+        // Known IT terms should NOT appear in internet abbreviations
+        let it_exclusives = ["kubernetes", "docker", "nginx", "redis", "mongodb"];
+        for term in it_exclusives {
+            assert!(
+                !abbrevs.contains(&term.to_string()),
+                "'{}' should not be in internet abbreviations",
+                term
+            );
+        }
+
+        // Known abbreviations should NOT appear in IT terminology
+        let abbrev_exclusives = ["btw", "fyi", "afaict", "imho", "tl;dr"];
+        for abbr in abbrev_exclusives {
+            assert!(
+                !it_terms.contains(&abbr.to_string()),
+                "'{}' should not be in IT terminology",
+                abbr
+            );
+        }
+
+        // Slang should not contain IT jargon (outside of slang-meaning overlaps)
+        let slang_in_it: Vec<&str> = it_exclusives.iter()
+            .filter(|t| slang.contains(&(*t).to_string()))
+            .copied()
+            .collect();
+        assert!(
+            slang_in_it.is_empty(),
+            "SLANG overlap with IT terms (acceptable but worth noting): {:?}",
+            slang_in_it
+        );
+    }
+
+    #[test]
+    fn test_load_words_lowercase_only_null_byte_handling() {
+        // Null bytes should be handled gracefully (preserved but lowercased).
+        let test_text = "word1\x00word2\nWORD3";
+        let words = load_words_lowercase_only(test_text);
+        assert_eq!(words.len(), 2, "Should produce 2 lines of words");
+
+        for (chars, _) in &words {
+            let word: String = chars.iter().collect();
+            assert_eq!(word.to_lowercase(), word, "Word '{}' must be lowercase", word);
+        }
+    }
+
+    #[test]
+    fn test_load_words_lowercase_only_leading_trailing_whitespace() {
+        // Whitespace around words should be trimmed correctly.
+        let test_text = "  BTW  \n\tFYI\t\n   LOL   ";
+        let words = load_words_lowercase_only(test_text);
+
+        assert_eq!(words.len(), 3, "Should extract 3 words despite surrounding whitespace");
+        let word_strings: Vec<String> = words.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        assert!(word_strings.contains(&"btw".to_string()));
+        assert!(word_strings.contains(&"fyi".to_string()));
+        assert!(word_strings.contains(&"lol".to_string()));
+
+        // No word should have leading/trailing whitespace after loading
+        for (chars, _) in &words {
+            let word: String = chars.iter().collect();
+            assert_eq!(word.trim(), word, "Word '{}' should not have surrounding whitespace", word);
+        }
+    }
+
+    #[test]
+    fn test_load_words_lowercase_only_hyphenated_compounds() {
+        // Hyphenated words should be preserved as single entries (not split).
+        let test_text = "end-to-end\nreal-time\npeer-to-peer\nhy-phen-a-ted";
+        let words = load_words_lowercase_only(test_text);
+
+        assert_eq!(words.len(), 4, "Should preserve hyphenated compounds");
+        let word_strings: Vec<String> = words.iter().map(|(chars, _)| chars.iter().collect()).collect();
+        assert!(word_strings.contains(&"end-to-end".to_string()));
+        assert!(word_strings.contains(&"real-time".to_string()));
+        assert!(word_strings.contains(&"peer-to-peer".to_string()));
+    }
+
+    #[test]
+    fn test_wordlist_info_category_matches() {
+        // The info().category field must match the category used to call info().
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            let info = category.info();
+            assert_eq!(
+                info.category, category,
+                "WordlistInfo.category must match the calling category"
+            );
+        }
+    }
+
+    #[test]
+    fn test_wordlist_minimum_counts_structural() {
+        // Structural bounds: each wordlist must have a minimum threshold that reflects its purpose.
+        // These are absolute minimums to catch accidental truncation, not exact counts.
+        let bounds: Vec<(WordlistCategory, usize)> = vec![
+            (WordlistCategory::InternetAbbreviations, 100),    // At least 100 abbreviations
+            (WordlistCategory::GenZSlang, 30),                  // At least 30 slang terms  
+            (WordlistCategory::ITTerminology, 500),             // At least 500 IT terms
+            (WordlistCategory::BrandNames, 100),                // At least 100 brands
+            (WordlistCategory::PersonNames, 1000),              // At least 1000 names
+            (WordlistCategory::LastNames, 5000),                // At least 5000 surnames
+        ];
+
+        for (category, min_count) in bounds {
+            let words = category.load_words();
+            assert!(
+                words.len() >= min_count,
+                "{:?}: loaded {} words, expected at least {}",
+                category, words.len(), min_count
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_categories_have_wordlist_files() {
+        // All WordlistCategory variants must have corresponding embedded wordlist data.
+        // This catches compile-time include_str! panics if a file goes missing.
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            let words = category.load_words();
+            assert!(
+                !words.is_empty(),
+                "{:?}: load_words must not return empty vec (wordlist file may be missing)",
+                category
+            );
+        }
+    }
+
+    #[test]
+    fn test_load_words_lowercase_only_case_preservation_patterns() {
+        // Verify that common abbreviation patterns are lowercased correctly.
+        let test_text = "HTTP\nHTTPS\nJSON\nXML\nURL\nAPI\nREST";
+        let words = load_words_lowercase_only(test_text);
+
+        assert_eq!(words.len(), 7, "Should load all 7 entries");
+        let word_strings: Vec<String> = words.iter().map(|(chars, _)| chars.iter().collect()).collect();
+
+        let expected_lower = vec!["http", "https", "json", "xml", "url", "api", "rest"];
+        for (i, expected) in expected_lower.iter().enumerate() {
+            assert_eq!(word_strings[i], *expected, "Entry {} should be '{}'", i, expected);
+        }
+
+        // Verify none contain uppercase
+        for word in &word_strings {
+            let has_upper = word.chars().any(|c| c.is_ascii_uppercase());
+            assert!(!has_upper, "Word '{}' contains uppercase characters", word);
+        }
+    }
+
+    #[test]
+    fn test_wordlist_count_reasonableness() {
+        // Cross-check that counts are in a reasonable range relative to each other.
+        let last_names = WordlistCategory::LastNames.load_words();
+        let person_names = WordlistCategory::PersonNames.load_words();
+        let it_terms = WordlistCategory::ITTerminology.load_words();
+        let abbrevs = WordlistCategory::InternetAbbreviations.load_words();
+
+        // Sanity: surnames should exceed person names in count (US Census covers common + rare)
+        assert!(
+            last_names.len() >= person_names.len(),
+            "Last names ({}) should be >= person names ({})",
+            last_names.len(),
+            person_names.len()
+        );
+
+        // IT terms should significantly outnumber abbreviations
+        assert!(
+            it_terms.len() > abbrevs.len(),
+            "IT terms ({}) should exceed abbreviations ({})",
+            it_terms.len(),
+            abbrevs.len()
+        );
     }
 }

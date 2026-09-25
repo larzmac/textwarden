@@ -2351,7 +2351,6 @@ rspca
 rss
 rsvp
 rt
-rt 
 rta
 rtb
 rtd
