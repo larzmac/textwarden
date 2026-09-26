@@ -214,10 +214,20 @@ GrammarEngine/                                    # Rust grammar engine
 └── src/
     ├── lib.rs                                    # Library entry point
     ├── bridge.rs                                 # Swift-Rust FFI bridge
-    ├── analyzer.rs                               # Harper grammar integration
-    ├── language_filter.rs                        # Language detection
-    ├── slang_dict.rs                             # Custom vocabulary dictionaries
+    ├── analyzer.rs                               # Harper grammar integration (WO-02)
+    ├── language_filter.rs                        # Language detection (WO-01, WO-02)
+    ├── slang_dict.rs                             # Custom vocabulary dictionaries (WO-01, WO-02)
     └── swift_logger.rs                           # Swift logging bridge
+
+### Module Details
+
+**analyzer.rs**: Core grammar analysis using Harper library. Implements text analysis with support for custom wordlists and filtering rules.
+
+**language_filter.rs**: Sentence-level language detection that filters out errors in non-English sentences to improve performance and accuracy. 
+
+**slang_dict.rs**: System for loading predefined wordlists (internet abbreviations, Gen Z slang, IT terminology, brand names, person names, last names) that are used by Harper to recognize valid terms.
+
+**bridge.rs**: FFI bridge that exposes Rust functions to Swift, enabling the TextWarden Swift app to call into the grammar engine.
 ```
 
 ## Core Components
