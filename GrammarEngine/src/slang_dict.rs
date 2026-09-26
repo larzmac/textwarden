@@ -292,7 +292,7 @@ mod tests {
             "Should NOT contain 'AFAICT'"
         );
 
-        println!(
+        tracing::debug!(
             "Loaded {} total abbreviations (lowercase only)",
             abbrevs.len()
         );
@@ -377,7 +377,7 @@ mod tests {
             "Should contain 'chmod'"
         );
 
-        println!("Loaded {} total IT terms", it_terms.len());
+        tracing::debug!("Loaded {} total IT terms", it_terms.len());
     }
 
     #[test]
@@ -646,7 +646,7 @@ mod tests {
             "Should contain 'amazon'"
         );
 
-        println!("Loaded {} brand names", brands.len());
+        tracing::debug!("Loaded {} brand names", brands.len());
     }
 
     #[test]
@@ -683,7 +683,7 @@ mod tests {
             "Should contain 'oliver'"
         );
 
-        println!("Loaded {} person names", names.len());
+        tracing::debug!("Loaded {} person names", names.len());
     }
 
     #[test]
@@ -720,7 +720,7 @@ mod tests {
             "Should contain 'martinez'"
         );
 
-        println!("Loaded {} last names", names.len());
+        tracing::debug!("Loaded {} last names", names.len());
     }
 
     // MARK: - WO-02: Security/QA Regression Tests (bounded inputs with behavioral assertions)

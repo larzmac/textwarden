@@ -1139,7 +1139,7 @@ mod tests {
     macro_rules! println {
         ($($arg:tt)*) => {{
             if std::env::var("TEXTWARDEN_TEST_LOG").is_ok() {
-                std::println!($($arg)*);
+                tracing::debug!($($arg)*);
             }
         }};
     }
