@@ -35,6 +35,11 @@ Before building, ensure you have:
    rustup target add x86_64-apple-darwin aarch64-apple-darwin
    ```
 
+3. **For running `make test-rust` specifically:**
+   - The Rust toolchain must be properly configured with both `x86_64-apple-darwin` and `aarch64-apple-darwin` targets installed
+   - Cargo must be able to run tests in the GrammarEngine directory
+   - The build scripts must be executable (`chmod +x Scripts/build-rust.sh`)
+
 ---
 
 ## Building
