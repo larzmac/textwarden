@@ -58,11 +58,13 @@ fn get_or_build_dictionary(
 
     // Try to get cached dictionary
     {
-        let cache = DICTIONARY_CACHE.lock().unwrap();
-        if let Some(ref cached) = *cache {
-            if cached.key == key {
-                tracing::debug!("Dictionary cache hit");
-                return (cached.dictionary.clone(), true);
+        let cache = DICTIONARY_CACHE.lock().ok();
+        if let Some(cache) = cache {
+            if let Some(ref cached) = *cache {
+                if cached.key == key {
+                    tracing::debug!("Dictionary cache hit");
+                    return (cached.dictionary.clone(), true);
+                }
             }
         }
     }
@@ -80,11 +82,14 @@ fn get_or_build_dictionary(
 
     // Store in cache
     {
-        let mut cache = DICTIONARY_CACHE.lock().unwrap();
-        *cache = Some(CachedDictionary {
-            key,
-            dictionary: dictionary.clone(),
-        });
+        if let Ok(mut cache) = DICTIONARY_CACHE.lock() {
+            *cache = Some(CachedDictionary {
+                key,
+                dictionary: dictionary.clone(),
+            });
+        } else {
+            tracing::warn!("Dictionary cache mutex poisoned, skipping cache update");
+        }
     }
 
     (dictionary, false)
