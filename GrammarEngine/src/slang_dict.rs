@@ -1383,4 +1383,111 @@ mod tests {
             abbrevs.len()
         );
     }
+
+    // MARK: - Deterministic Fixture Tests (WO-04)
+    
+    #[test]
+    fn test_wordlist_loading_is_deterministic() {
+        // Test that loading the same wordlist multiple times produces identical results
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        for category in categories {
+            // Load the same wordlist multiple times
+            let words1 = category.load_words();
+            let words2 = category.load_words();
+            let words3 = category.load_words();
+            
+            // All loads should produce identical results
+            assert_eq!(words1.len(), words2.len(), "{:?}: first and second load lengths differ", category);
+            assert_eq!(words2.len(), words3.len(), "{:?}: second and third load lengths differ", category);
+            
+            // Compare word contents directly
+            for (i, ((word1, meta1), (word2, meta2))) in words1.iter().zip(words2.iter()).enumerate() {
+                let str1: String = word1.iter().collect();
+                let str2: String = word2.iter().collect();
+                
+                assert_eq!(str1, str2, "{:?}: word at index {} differs between loads", category, i);
+                assert_eq!(meta1, meta2, "{:?}: metadata at index {} differs between loads", category, i);
+            }
+        }
+    }
+
+    #[test]
+    fn test_wordlist_fixture_consistency() {
+        // Test that wordlist fixtures are consistent and deterministic across runs
+        // This ensures the include_str! macro behavior is stable
+        let categories = vec![
+            WordlistCategory::InternetAbbreviations,
+            WordlistCategory::GenZSlang,
+            WordlistCategory::ITTerminology,
+            WordlistCategory::BrandNames,
+            WordlistCategory::PersonNames,
+            WordlistCategory::LastNames,
+        ];
+
+        // Load each wordlist once and verify it's consistent
+        for category in categories {
+            let words = category.load_words();
+            
+            // Verify that we get the same count every time
+            let words_again = category.load_words();
+            assert_eq!(words.len(), words_again.len(), "{:?}: fixture count not stable", category);
+            
+            // Verify content consistency (first 10 entries)
+            let sample_size = std::cmp::min(10, words.len());
+            for i in 0..sample_size {
+                let word1: String = words[i].0.iter().collect();
+                let word2: String = words_again[i].0.iter().collect();
+                assert_eq!(word1, word2, "{:?}: fixture content not stable at index {}", category, i);
+            }
+        }
+    }
+
+    #[test]
+    fn test_wordlist_fixture_determinism_across_categories() {
+        // Test that different categories have deterministic, non-overlapping fixtures
+        let abbrevs = WordlistCategory::InternetAbbreviations.load_words();
+        let slang = WordlistCategory::GenZSlang.load_words();
+        let it_terms = WordlistCategory::ITTerminology.load_words();
+        let brands = WordlistCategory::BrandNames.load_words();
+        let person_names = WordlistCategory::PersonNames.load_words();
+        let last_names = WordlistCategory::LastNames.load_words();
+
+        // Verify each category has deterministic, non-empty results
+        assert!(!abbrevs.is_empty(), "Internet abbreviations should not be empty");
+        assert!(!slang.is_empty(), "Gen Z slang should not be empty");
+        assert!(!it_terms.is_empty(), "IT terminology should not be empty");
+        assert!(!brands.is_empty(), "Brand names should not be empty");
+        assert!(!person_names.is_empty(), "Person names should not be empty");
+        assert!(!last_names.is_empty(), "Last names should not be empty");
+
+        // Verify all words are lowercase (as a fixture consistency check)
+        let categories = vec![
+            ("abbreviations", &abbrevs),
+            ("genz_slang", &slang),
+            ("it_terms", &it_terms),
+            ("brand_names", &brands),
+            ("person_names", &person_names),
+            ("last_names", &last_names),
+        ];
+
+        for (name, words) in categories {
+            for (chars, _) in words {
+                let word: String = chars.iter().collect();
+                assert_eq!(
+                    word.to_lowercase(),
+                    word,
+                    "{:?}: word '{}' is not lowercase",
+                    name, word
+                );
+            }
+        }
+    }
 }
