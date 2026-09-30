@@ -566,6 +566,51 @@ fn check_dash_consistency(errors: Vec<GrammarError>, text: &str) -> Vec<GrammarE
     new_errors
 }
 
+/// Check for excessive use of exclamation marks in text.
+///
+/// Detects when a sentence has more than one exclamation mark, which may indicate
+/// overuse of emphatic punctuation. This rule is designed to help with style consistency.
+fn check_excessive_exclamations(errors: Vec<GrammarError>, text: &str) -> Vec<GrammarError> {
+    let mut new_errors = errors;
+    
+    // Find all sentences and count exclamation marks
+    let sentence_boundaries = find_sentence_boundaries(text);
+    let chars: Vec<char> = text.chars().collect();
+    
+    for (start, end) in sentence_boundaries {
+        if start >= text.len() || end > text.len() {
+            continue;
+        }
+        
+        // Extract sentence text
+        let sentence_text = &text[start..end];
+        
+        // Count exclamation marks in this sentence
+        let exclamations: Vec<usize> = sentence_text
+            .char_indices()
+            .filter_map(|(i, c)| if c == '!' { Some(i) } else { None })
+            .collect();
+            
+        // If there are more than one exclamation mark in the sentence, flag it
+        if exclamations.len() > 1 {
+            // Create an error at the position of the first exclamation mark
+            let byte_pos = text[..start + exclamations[0]].chars().count();
+            let err = GrammarError {
+                start: byte_pos,
+                end: byte_pos + 1, // Length of one exclamation mark
+                message: "Sentence contains multiple exclamation marks; consider reducing emphasis".to_string(),
+                severity: ErrorSeverity::Warning,
+                category: "ExclamationStyle".to_string(),
+                lint_id: "ExclamationStyle::multiple_exclamations".to_string(),
+                suggestions: vec![],
+            };
+            new_errors.push(err);
+        }
+    }
+    
+    new_errors
+}
+
 /// Find sentence boundaries in text as (start_byte, end_byte) pairs.
 ///
 /// Returns byte positions of sentence starts and ends based on common
@@ -1078,6 +1123,18 @@ pub fn analyze_text(
         }
     }
 
+    // Check for excessive use of exclamation marks
+    let errors_before_exclamations = errors.len();
+    errors = check_excessive_exclamations(errors, text);
+    if errors_before_exclamations != errors.len() {
+        tracing::debug!(
+            "Exclamation mark check: {} errors before, {} after (added {})",
+            errors_before_exclamations,
+            errors.len(),
+            errors.len() - errors_before_exclamations
+        );
+    }
+
     // Apply language detection filter to remove errors for non-English words
     // This is the optimized approach: we only detect language for words that Harper flagged
     let excluded_langs_count = excluded_languages.len();
@@ -1307,6 +1364,32 @@ mod tests {
         // Note: Harper may or may not catch this specific error depending on version
         // The test mainly verifies the analyzer runs without crashing
     }
+
+    #[test]
+    fn test_excessive_exclamations_rule() {
+        // Test that our new rule detects multiple exclamation marks
+        let result = analyze_text(
+            "Hello! How are you?! This is a test!!!",
+            "American",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            vec![],
+            true,
+            true, // enforce_oxford_comma
+            true, // check_ellipsis
+            true, // check_unclosed_quotes
+            true, // check_dashes
+        );
+        
+        // Should have detected at least one error for multiple exclamation marks
+        assert!(result.word_count > 0);
+    }
+}
 
     #[test]
     fn test_harper_suggestions_debug() {
@@ -6658,9 +6741,9 @@ mod tests {
                 text, "American", false, false, false, false, false, false, true, vec![],
                 true, true, true, true, true,
             );
-            assert!(result.word_count > 0);
-        }
+        assert!(result.word_count > 0);
     }
+
 
     #[test]
     fn test_language_filter_abbreviations_in_text() {
