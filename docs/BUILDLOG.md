@@ -21,3 +21,7 @@
 ## 2026-09-30 — textwarden Rust caps SECURITY docs (task/260927-3b24)
 - docs/SECURITY.md Rust caps
 - Forge day-watch QA: gate_ok+meets_brief; docs-only tip certified. Local merge only; no GitHub push. (from tip 291c963)
+
+## 2026-09-30 — textwarden competitive notes vs LT (task/260927-968f)
+- docs/COMPETITIVE_NOTES.md
+- Forge day-watch QA: gate_ok+meets_brief; docs-only tip certified. Local merge only; no GitHub push. (from tip 27faa5e)
