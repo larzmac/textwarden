@@ -17,3 +17,7 @@
 ### Documentation References
 - Full security notes: [docs/SECURITY.md](SECURITY.md)
 - Source code annotations in: `GrammarEngine/src/analyzer.rs`, `GrammarEngine/src/bridge.rs`
+
+## 2026-09-30 — textwarden Rust caps SECURITY docs (task/260927-3b24)
+- docs/SECURITY.md Rust caps
+- Forge day-watch QA: gate_ok+meets_brief; docs-only tip certified. Local merge only; no GitHub push. (from tip 291c963)
