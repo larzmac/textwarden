@@ -575,7 +575,6 @@ fn check_excessive_exclamations(errors: Vec<GrammarError>, text: &str) -> Vec<Gr
     
     // Find all sentences and count exclamation marks
     let sentence_boundaries = find_sentence_boundaries(text);
-    let chars: Vec<char> = text.chars().collect();
     
     for (start, end) in sentence_boundaries {
         if start >= text.len() || end > text.len() {
@@ -594,7 +593,8 @@ fn check_excessive_exclamations(errors: Vec<GrammarError>, text: &str) -> Vec<Gr
         // If there are more than one exclamation mark in the sentence, flag it
         if exclamations.len() > 1 {
             // Create an error at the position of the first exclamation mark
-            let byte_pos = text[..start + exclamations[0]].chars().count();
+            // start is a byte offset from find_sentence_boundaries, exclamations[0] is a byte offset within sentence_text from char_indices()
+            let byte_pos = start + exclamations[0];
             let err = GrammarError {
                 start: byte_pos,
                 end: byte_pos + 1, // Length of one exclamation mark
@@ -625,8 +625,13 @@ fn find_sentence_boundaries(text: &str) -> Vec<(usize, usize)> {
             let after = &text[i + c.len_utf8()..];
             let trimmed = after.trim_start();
             if trimmed.is_empty() || !trimmed.chars().next().unwrap().is_alphabetic() {
-                boundaries.push((current_start, i + c.len_utf8()));
-                current_start = i + c.len_utf8();
+                // Extend end past any trailing punctuation to capture "?!"" or "!!!" as one boundary
+                let mut end_pos = i + c.len_utf8();
+                while end_pos < text.len() && matches!(text.as_bytes()[end_pos], b'.' | b'!' | b'?' | b'\'' | b'"') {
+                    end_pos += 1;
+                }
+                boundaries.push((current_start, end_pos));
+                current_start = end_pos;
                 // Skip whitespace for next sentence start
                 let skip_ws: usize = after[..after.len() - trimmed.len()].chars().count();
                 if !trimmed.is_empty() {
@@ -1387,9 +1392,14 @@ mod tests {
         );
         
         // Should have detected at least one error for multiple exclamation marks
-        assert!(result.word_count > 0);
+        let exclamation_errors: Vec<&GrammarError> = result.errors.iter()
+            .filter(|e| e.category == "ExclamationStyle")
+            .collect();
+        assert!(exclamation_errors.len() >= 2, 
+            "Expected at least 2 ExclamationStyle errors (for '?!' and '!!!'), got {}: {:?}", 
+            exclamation_errors.len(),
+            exclamation_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
     }
-}
 
     #[test]
     fn test_harper_suggestions_debug() {
@@ -6741,7 +6751,8 @@ mod tests {
                 text, "American", false, false, false, false, false, false, true, vec![],
                 true, true, true, true, true,
             );
-        assert!(result.word_count > 0);
+            assert!(result.word_count > 0);
+        }
     }
 
 

@@ -30,3 +30,7 @@
 - GrammarEngine/src/bridge.rs: add 11 unit tests (GrammarError construction/accessors/severity/suggestions/unicode/cloning; AnalysisResult construction/accessor methods/timing/memory delta edge cases)
 - bridge.rs had zero prior test coverage — now fully tested
 - Forge day-watch QA gate pending. Local merge only; no GitHub push.
+
+## 2026-10-01 — textwarden WO-02 Rust rule analyzer one GREEN slice (task/260927-e93f)
+- analyzer.rs: exclamation byte-offset fix, sentence-boundary trailing punct, test renames; removed stray test_new_rule binary.
+- Forge day-watch QA: gate_ok+meets_brief; cargo test 296p on tip; tip lacked BUILDLOG vs base; appended on merge. Local only; no GitHub push. (from tip 47ff7ef)
