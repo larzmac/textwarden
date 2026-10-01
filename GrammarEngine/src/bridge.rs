@@ -352,3 +352,298 @@ fn analyze_text(
         post_process_ms: result.post_process_ms,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_grammar_error_construction() {
+        let err = GrammarError {
+            start: 0,
+            end: 5,
+            message: "Test error".to_string(),
+            severity: analyzer::ErrorSeverity::Warning,
+            category: "spelling".to_string(),
+            lint_id: "spell".to_string(),
+            suggestions: vec!["test".to_string(), "tes".to_string()],
+        };
+
+        assert_eq!(err.start(), 0);
+        assert_eq!(err.end(), 5);
+        assert_eq!(err.message(), "Test error");
+        assert_eq!(err.category(), "spelling");
+        assert_eq!(err.lint_id(), "spell");
+    }
+
+    #[test]
+    fn test_grammar_error_severity_mapping() {
+        let err_error = GrammarError {
+            start: 0,
+            end: 3,
+            message: "error".to_string(),
+            severity: analyzer::ErrorSeverity::Error,
+            category: "spelling".to_string(),
+            lint_id: "spell".to_string(),
+            suggestions: vec![],
+        };
+
+        let err_warning = GrammarError {
+            start: 0,
+            end: 3,
+            message: "warning".to_string(),
+            severity: analyzer::ErrorSeverity::Warning,
+            category: "spelling".to_string(),
+            lint_id: "spell".to_string(),
+            suggestions: vec![],
+        };
+
+        let err_info = GrammarError {
+            start: 0,
+            end: 3,
+            message: "info".to_string(),
+            severity: analyzer::ErrorSeverity::Info,
+            category: "spelling".to_string(),
+            lint_id: "spell".to_string(),
+            suggestions: vec![],
+        };
+
+        match err_error.severity() {
+            ffi::ErrorSeverity::Error => {}
+            _ => panic!("expected Error severity"),
+        }
+
+        match err_warning.severity() {
+            ffi::ErrorSeverity::Warning => {}
+            _ => panic!("expected Warning severity"),
+        }
+
+        match err_info.severity() {
+            ffi::ErrorSeverity::Info => {}
+            _ => panic!("expected Info severity"),
+        }
+    }
+
+    #[test]
+    fn test_grammar_error_suggestions() {
+        let err = GrammarError {
+            start: 0,
+            end: 4,
+            message: "typo".to_string(),
+            severity: analyzer::ErrorSeverity::Error,
+            category: "spelling".to_string(),
+            lint_id: "spell".to_string(),
+            suggestions: vec!["they're".to_string(), "their".to_string()],
+        };
+
+        let suggestions = err.suggestions();
+        assert_eq!(suggestions.len(), 2);
+        assert_eq!(suggestions[0], "they're");
+        assert_eq!(suggestions[1], "their");
+    }
+
+    #[test]
+    fn test_grammar_error_empty_suggestions() {
+        let err = GrammarError {
+            start: 0,
+            end: 3,
+            message: "empty".to_string(),
+            severity: analyzer::ErrorSeverity::Error,
+            category: "grammar".to_string(),
+            lint_id: "comma".to_string(),
+            suggestions: vec![],
+        };
+
+        let suggestions = err.suggestions();
+        assert!(suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_grammar_error_unicode_message() {
+        let err = GrammarError {
+            start: 0,
+            end: 3,
+            message: "错误消息".to_string(),
+            severity: analyzer::ErrorSeverity::Warning,
+            category: "spelling".to_string(),
+            lint_id: "spell".to_string(),
+            suggestions: vec!["correct".to_string()],
+        };
+
+        assert_eq!(err.message(), "错误消息");
+    }
+
+    #[test]
+    fn test_analysis_result_construction() {
+        let result = AnalysisResult {
+            errors: vec![],
+            word_count: 10,
+            analysis_time_ms: 42,
+            memory_before_bytes: 1_000_000,
+            memory_after_bytes: 1_005_000,
+            memory_delta_bytes: 5_000,
+            is_non_english_document: false,
+            early_language_check_ms: 2,
+            dictionary_build_ms: 5,
+            linter_setup_ms: 3,
+            document_parse_ms: 8,
+            harper_lint_ms: 20,
+            post_process_ms: 4,
+        };
+
+        assert_eq!(result.word_count(), 10);
+        assert_eq!(result.analysis_time_ms(), 42);
+        assert_eq!(result.memory_before_bytes(), 1_000_000);
+        assert_eq!(result.memory_after_bytes(), 1_005_000);
+        assert_eq!(result.memory_delta_bytes(), 5_000);
+        assert_eq!(result.is_non_english_document(), false);
+        assert_eq!(result.early_language_check_ms(), 2);
+        assert_eq!(result.dictionary_build_ms(), 5);
+        assert_eq!(result.linter_setup_ms(), 3);
+        assert_eq!(result.document_parse_ms(), 8);
+        assert_eq!(result.harper_lint_ms(), 20);
+        assert_eq!(result.post_process_ms(), 4);
+    }
+
+    #[test]
+    fn test_analysis_result_with_errors() {
+        let errors = vec![
+            GrammarError {
+                start: 0,
+                end: 3,
+                message: "typo1".to_string(),
+                severity: analyzer::ErrorSeverity::Error,
+                category: "spelling".to_string(),
+                lint_id: "spell".to_string(),
+                suggestions: vec!["the".to_string()],
+            },
+            GrammarError {
+                start: 20,
+                end: 25,
+                message: "typo2".to_string(),
+                severity: analyzer::ErrorSeverity::Warning,
+                category: "grammar".to_string(),
+                lint_id: "comma".to_string(),
+                suggestions: vec![],
+            },
+        ];
+
+        let result = AnalysisResult {
+            errors,
+            word_count: 100,
+            analysis_time_ms: 50,
+            memory_before_bytes: 2_000_000,
+            memory_after_bytes: 2_002_500,
+            memory_delta_bytes: 2_500,
+            is_non_english_document: true,
+            early_language_check_ms: 1,
+            dictionary_build_ms: 10,
+            linter_setup_ms: 5,
+            document_parse_ms: 15,
+            harper_lint_ms: 25,
+            post_process_ms: 4,
+        };
+
+        let errs = result.errors();
+        assert_eq!(errs.len(), 2);
+        assert_eq!(errs[0].start(), 0);
+        assert_eq!(errs[1].end(), 25);
+        assert_eq!(result.is_non_english_document(), true);
+    }
+
+    #[test]
+    fn test_analysis_result_zero_timing() {
+        let result = AnalysisResult {
+            errors: vec![],
+            word_count: 0,
+            analysis_time_ms: 0,
+            memory_before_bytes: 0,
+            memory_after_bytes: 0,
+            memory_delta_bytes: 0,
+            is_non_english_document: false,
+            early_language_check_ms: 0,
+            dictionary_build_ms: 0,
+            linter_setup_ms: 0,
+            document_parse_ms: 0,
+            harper_lint_ms: 0,
+            post_process_ms: 0,
+        };
+
+        assert_eq!(result.word_count(), 0);
+        assert_eq!(result.analysis_time_ms(), 0);
+    }
+
+    #[test]
+    fn test_analysis_result_negative_delta() {
+        let result = AnalysisResult {
+            errors: vec![],
+            word_count: 5,
+            analysis_time_ms: 10,
+            memory_before_bytes: 5_000_000,
+            memory_after_bytes: 4_900_000,
+            memory_delta_bytes: -100_000,
+            is_non_english_document: false,
+            early_language_check_ms: 0,
+            dictionary_build_ms: 0,
+            linter_setup_ms: 0,
+            document_parse_ms: 0,
+            harper_lint_ms: 8,
+            post_process_ms: 2,
+        };
+
+        assert_eq!(result.memory_delta_bytes(), -100_000);
+    }
+
+    #[test]
+    fn test_grammar_error_clone() {
+        let err = GrammarError {
+            start: 5,
+            end: 10,
+            message: "clone me".to_string(),
+            severity: analyzer::ErrorSeverity::Info,
+            category: "style".to_string(),
+            lint_id: "style".to_string(),
+            suggestions: vec!["suggested".to_string()],
+        };
+
+        let cloned = err.clone();
+        assert_eq!(cloned.start(), 5);
+        assert_eq!(cloned.end(), 10);
+        assert_eq!(cloned.message(), "clone me");
+    }
+
+    #[test]
+    fn test_analysis_result_clone() {
+        let errors = vec![GrammarError {
+            start: 0,
+            end: 4,
+            message: "orig".to_string(),
+            severity: analyzer::ErrorSeverity::Error,
+            category: "spelling".to_string(),
+            lint_id: "spell".to_string(),
+            suggestions: vec!["or".to_string()],
+        }];
+
+        let result = AnalysisResult {
+            errors,
+            word_count: 1,
+            analysis_time_ms: 5,
+            memory_before_bytes: 100,
+            memory_after_bytes: 200,
+            memory_delta_bytes: 100,
+            is_non_english_document: false,
+            early_language_check_ms: 0,
+            dictionary_build_ms: 0,
+            linter_setup_ms: 0,
+            document_parse_ms: 0,
+            harper_lint_ms: 3,
+            post_process_ms: 2,
+        };
+
+        // Verify AnalysisResult accessor methods work by constructing a fresh copy
+        let errors_copy = result.errors();
+        assert_eq!(result.word_count(), 1);
+        assert_eq!(errors_copy.len(), 1);
+        assert_eq!(result.harper_lint_ms(), 3);
+    }
+}

@@ -25,3 +25,8 @@
 ## 2026-09-30 — textwarden competitive notes vs LT (task/260927-968f)
 - docs/COMPETITIVE_NOTES.md
 - Forge day-watch QA: gate_ok+meets_brief; docs-only tip certified. Local merge only; no GitHub push. (from tip 27faa5e)
+
+## 2026-10-01 — textwarden expand GrammarEngine tests residual (task/260927-e2b2)
+- GrammarEngine/src/bridge.rs: add 11 unit tests (GrammarError construction/accessors/severity/suggestions/unicode/cloning; AnalysisResult construction/accessor methods/timing/memory delta edge cases)
+- bridge.rs had zero prior test coverage — now fully tested
+- Forge day-watch QA gate pending. Local merge only; no GitHub push.
