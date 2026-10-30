@@ -34,3 +34,8 @@
 ## 2026-10-01 — textwarden WO-02 Rust rule analyzer one GREEN slice (task/260927-e93f)
 - analyzer.rs: exclamation byte-offset fix, sentence-boundary trailing punct, test renames; removed stray test_new_rule binary.
 - Forge day-watch QA: gate_ok+meets_brief; cargo test 296p on tip; tip lacked BUILDLOG vs base; appended on merge. Local only; no GitHub push. (from tip 47ff7ef)
+
+## 2026-10-30 Forge review fix (pre-merge to fork main)
+- swift_logger.rs test_register_callback_idempotent: replaced `transmute(0usize)` into a non-nullable `extern "C" fn` pointer (undefined behaviour) with a real no-op callback; test now asserts registration is reported. Test-only.
+- console.json: cwd moved from retired ~/Documents/Claude/Projects/TextWarden-Fork to ~/AI/studio/repos/textwarden.
+- make test-rust: 307 passed, 0 failed, 10 ignored.

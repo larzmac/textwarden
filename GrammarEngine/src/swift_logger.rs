@@ -230,19 +230,21 @@ mod tests {
         }
     }
 
+    extern "C" fn noop_log_callback(_level: i32, _message: *const std::ffi::c_char) {}
+
     #[test]
     fn test_register_callback_idempotent() {
-        // Registering a callback multiple times should be safe (last one wins)
-        // Use a null pointer to test safe registration without actual callback
-        let dummy: SwiftLogCallback = unsafe { std::mem::transmute(0usize) };
-        
-        register_swift_callback(dummy);
-        // Null pointer means has_swift_callback returns false (null check in impl)
-        assert!(!has_swift_callback(), "Null callback should not be considered registered");
-        
-        // Re-registering the same null callback is safe
-        register_swift_callback(dummy);
-        assert!(!has_swift_callback());
+        // Registering a callback multiple times is safe (last one wins).
+        // Uses a real no-op extern "C" fn: a fn pointer can never be null, so
+        // transmuting 0usize into SwiftLogCallback would be undefined behaviour.
+        register_swift_callback(noop_log_callback);
+        assert!(has_swift_callback(), "Registered callback should be reported");
+
+        register_swift_callback(noop_log_callback);
+        assert!(has_swift_callback());
+
+        // Sending through the registered no-op callback must not crash.
+        SwiftLoggerLayer::send_to_swift(2, "Test message via callback");
     }
 
     #[test]

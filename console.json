@@ -3,7 +3,7 @@
   "name": "TextWarden (Grammarly Replacement)",
   "emoji": "✍️",
   "description": "Grammar checker that underlines mistakes as you type in Mail, TextEdit, and other apps",
-  "cwd": "/Users/larz/Documents/Claude/Projects/TextWarden-Fork",
+  "cwd": "/Users/larz/AI/studio/repos/textwarden",
   "status": {
     "port": 8081,
     "label": "Grammar server (LanguageTool)"
