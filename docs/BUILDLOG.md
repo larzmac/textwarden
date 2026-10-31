@@ -39,3 +39,9 @@
 - swift_logger.rs test_register_callback_idempotent: replaced `transmute(0usize)` into a non-nullable `extern "C" fn` pointer (undefined behaviour) with a real no-op callback; test now asserts registration is reported. Test-only.
 - console.json: cwd moved from retired ~/Documents/Claude/Projects/TextWarden-Fork to ~/AI/studio/repos/textwarden.
 - make test-rust: 307 passed, 0 failed, 10 ignored.
+
+## 2026-10-30 — Larz's fork work moved onto the fork's main (Larz t62u; Forge GREEN 013256b)
+- main fast-forwarded 85311ca -> 013256b (26 commits from languagetool-engine: LanguageTool engine + Harper fallback, local AI style engine, browser extension, GrammarEngine tests/docs, Forge's UB fix).
+- From now on Larz's work lives on main of github.com/larzmac/textwarden (origin). upstream (PhilipSchmid/textwarden) is fetch-only; its push URL is DISABLED.
+- languagetool-engine on GitHub is left as is (not deleted). GitHub default branch is unchanged pending Larz.
+- Undo: reset GitHub main to the pre-push-* tag created by push_reviewed_main.py (85311ca).
